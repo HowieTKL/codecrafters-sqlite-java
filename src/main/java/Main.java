@@ -1,9 +1,14 @@
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public class Main {
+  private static final Logger LOG = LoggerFactory.getLogger(Main.class);
+
   public static void main(String[] args){
     if (args.length < 2) {
       System.out.println("Missing <database path> and <command>");
@@ -23,14 +28,11 @@ public class Main {
           databaseFile.read(pageSizeBytes);
           short pageSizeSigned = ByteBuffer.wrap(pageSizeBytes).getShort();
           int pageSize = Short.toUnsignedInt(pageSizeSigned);
-
-          // You can use print statements as follows for debugging, they'll be visible when running tests.
-          System.err.println("Logs from your program will appear here!");
-
+          LOG.info("Logs from your program will appear here!");
           // Uncomment this block to pass the first stage
-          // System.out.println("database page size: " + pageSize);
+          System.out.println("database page size: " + pageSize);
         } catch (IOException e) {
-          System.out.println("Error reading file: " + e.getMessage());
+          LOG.error(e.getMessage(), e);
         }
       }
       default -> System.out.println("Missing or invalid command passed: " + command);
