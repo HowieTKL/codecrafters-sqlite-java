@@ -1,6 +1,4 @@
-package org.howietkl.sqlite;
-
-import java.io.IOException;
+package org.howietkl.sqlite.command;
 
 public interface Command {
   void execute(String[] args) throws Exception;

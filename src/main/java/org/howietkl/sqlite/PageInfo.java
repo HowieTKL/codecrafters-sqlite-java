@@ -18,7 +18,7 @@ public class PageInfo {
   private final int cells;
   private final int cellContentStart;
   private final int fragmentedBytes;
-  private final long rightMostPointer;
+  private long rightMostPointer = -1;
 
   public enum Type {
     INTERIOR_INDEX(2),
@@ -40,17 +40,17 @@ public class PageInfo {
     }
   }
 
-
-  private PageInfo(byte type, int firstFreeBlock, int cells, int cellContentStart, int fragmentedBytes, long rightMostPointer) {
+  private PageInfo(byte type, int firstFreeBlock, int cells, int cellContentStart, int fragmentedBytes) {
     this.type = Type.get(type);
     this.firstFreeBlock = firstFreeBlock;
     this.cells = cells;
     this.cellContentStart = cellContentStart == 0 ? 65536 : cellContentStart;
     this.fragmentedBytes = fragmentedBytes;
-    this.rightMostPointer = rightMostPointer;
   }
 
   /**
+   * Returns populated PageInfo, and advances ByteBuffer position accordingly.
+   * Note that existence of RightMostPointer depends upon whether page is interior.
    * @param db should be set to appropriate position before calling this method
    */
   public static PageInfo get(ByteBuffer db) {
@@ -59,8 +59,13 @@ public class PageInfo {
         Short.toUnsignedInt(db.getShort()),
         Short.toUnsignedInt(db.getShort()),
         Short.toUnsignedInt(db.getShort()),
-        Byte.toUnsignedInt(db.get()),
-        Integer.toUnsignedLong(db.getInt()));
+        Byte.toUnsignedInt(db.get()));
+
+    switch (page.type) {
+      case Type.INTERIOR_TABLE, Type.INTERIOR_INDEX -> {
+        page.rightMostPointer = Integer.toUnsignedLong(db.getInt());
+      }
+    }
 
     LOG.info("PAGE type b-tree: {} [{}]", page.getType(), page.getType().value);
     LOG.info("PAGE first freeblock: {}", page.getFirstFreeBlock());
@@ -72,10 +77,6 @@ public class PageInfo {
     return page;
   }
 
-  /**
-   * Page type:
-   * 2=interior index, 5=interior table, 10=leaf index, 13=leaf table
-   */
   public Type getType() {
     return type;
   }
@@ -88,15 +89,16 @@ public class PageInfo {
     return cells;
   }
 
-  /**
-   * 0 means 65536
-   */
   public int getCellContentStart() {
     return cellContentStart;
   }
 
   public int getFragmentedBytes() {
     return fragmentedBytes;
+  }
+
+  public boolean hasRightMostPointer() {
+    return type == Type.INTERIOR_TABLE || type == Type.INTERIOR_INDEX;
   }
 
   public long getRightMostPointer() {
