@@ -1,4 +1,5 @@
 import org.howietkl.sqlite.command.DBInfoCommand;
+import org.howietkl.sqlite.command.SQLCommand;
 import org.howietkl.sqlite.command.TablesCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +19,7 @@ public class Main {
       switch (command) {
         case ".dbinfo" -> new DBInfoCommand().execute(args);
         case ".tables" -> new TablesCommand().execute(args);
-        default -> System.out.println("Missing or invalid command passed: " + command);
+        default -> new SQLCommand().execute(args);
       }
     } catch (Exception e) {
       LOG.error(e.getMessage(), e);
