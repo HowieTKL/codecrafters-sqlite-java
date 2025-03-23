@@ -1,6 +1,7 @@
 package org.howietkl.sqlite.command;
 
-import org.howietkl.sqlite.PageInfo;
+import org.howietkl.sqlite.CellPointerArray;
+import org.howietkl.sqlite.PageHeader;
 import org.howietkl.sqlite.SerialType;
 import org.howietkl.sqlite.Utils;
 import org.slf4j.Logger;
@@ -29,22 +30,23 @@ public class TablesCommand implements Command {
     DBInfoCommand.readTextEncoding(db);
 
     db.position(100);
-    PageInfo pageInfo = PageInfo.get(db);
-    int[] cellOffsets = new int[pageInfo.getCells()];
-    for (int i = 0; i < cellOffsets.length; ++i) {
-      cellOffsets[i] = Short.toUnsignedInt(db.getShort());
-      LOG.debug("Cell {} offset at {}", i, cellOffsets[i]);
-    }
-    String[] tableNames = new String[pageInfo.getCells()];
-    for (int i = 0; i < cellOffsets.length; ++i) {
-      db.position(cellOffsets[i]);
+    PageHeader pageHeader = PageHeader.get(db);
+    CellPointerArray cellPointerArray = CellPointerArray.get(pageHeader, db);
+
+    String[] tableNames = new String[pageHeader.getCells()];
+    for (int i = 0; i < cellPointerArray.getOffsets().length; ++i) {
+      db.position(cellPointerArray.getOffsets()[i]);
       int payloadSize = (int) Utils.getVarint(db);
       int rowId = (int) Utils.getVarint(db);
 
       byte[] payloadBytes = new byte[payloadSize];
       db.get(payloadBytes);
       ByteBuffer payload = ByteBuffer.wrap(payloadBytes);
-      LOG.trace("rowId={} payloadSize={} payload={}", rowId, payloadSize, new String(payload.array(), DBInfoCommand.TEXT_ENCODING));
+      LOG.debug("offset={} rowId={} payloadSize={} payload={}",
+          cellPointerArray.getOffsets()[i],
+          rowId,
+          payloadSize,
+          new String(payload.array(), DBInfoCommand.TEXT_ENCODING));
 
       int prevPos = payload.position();
       int recordHeaderSize = (int) Utils.getVarint(payload);

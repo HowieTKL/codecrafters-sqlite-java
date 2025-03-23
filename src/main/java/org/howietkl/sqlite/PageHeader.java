@@ -10,8 +10,8 @@ import java.util.Map;
 /**
  * @see <a href="https://www.sqlite.org/fileformat.html#b_tree_pages">B-tree Pages</a>
  */
-public class PageInfo {
-  private static final Logger LOG = LoggerFactory.getLogger(PageInfo.class);
+public class PageHeader {
+  private static final Logger LOG = LoggerFactory.getLogger(PageHeader.class);
 
   private final Type type;
   private final int firstFreeBlock;
@@ -40,7 +40,7 @@ public class PageInfo {
     }
   }
 
-  private PageInfo(byte type, int firstFreeBlock, int cells, int cellContentStart, int fragmentedBytes) {
+  private PageHeader(byte type, int firstFreeBlock, int cells, int cellContentStart, int fragmentedBytes) {
     this.type = Type.get(type);
     this.firstFreeBlock = firstFreeBlock;
     this.cells = cells;
@@ -49,17 +49,17 @@ public class PageInfo {
   }
 
   /**
-   * Returns populated PageInfo, and advances ByteBuffer position accordingly.
+   * Returns populated object, and advances ByteBuffer position accordingly.
    * Note that existence of RightMostPointer depends upon whether page is interior.
    * @param db should be set to appropriate position before calling this method
    */
-  public static PageInfo get(ByteBuffer db) {
-    PageInfo page = new PageInfo(
-        db.get(),
-        Short.toUnsignedInt(db.getShort()),
-        Short.toUnsignedInt(db.getShort()),
-        Short.toUnsignedInt(db.getShort()),
-        Byte.toUnsignedInt(db.get()));
+  public static PageHeader get(ByteBuffer db) {
+    PageHeader page = new PageHeader(
+        db.get(), // type
+        Short.toUnsignedInt(db.getShort()), // first freeblock
+        Short.toUnsignedInt(db.getShort()), // #cells
+        Short.toUnsignedInt(db.getShort()), // cell content area start
+        Byte.toUnsignedInt(db.get())); // fragmented free bytes
 
     switch (page.type) {
       case Type.INTERIOR_TABLE, Type.INTERIOR_INDEX -> {
@@ -67,13 +67,14 @@ public class PageInfo {
       }
     }
 
-    LOG.info("PAGE type b-tree: {} [{}]", page.getType(), page.getType().value);
-    LOG.info("PAGE first freeblock: {}", page.getFirstFreeBlock());
-    LOG.info("PAGE cells: {}", page.getCells());
-    LOG.info("PAGE cell content start: {}", page.getCellContentStart());
-    LOG.info("PAGE fragmented bytes: {}", page.getFragmentedBytes());
-    LOG.info("PAGE right most pointer: {}", page.getRightMostPointer());
-
+    LOG.debug("type b-tree: {} [{}]", page.getType(), page.getType().value);
+    LOG.debug("first freeblock: {}", page.getFirstFreeBlock());
+    LOG.debug("cells: {}", page.getCells());
+    LOG.debug("cell content start: {}", page.getCellContentStart());
+    LOG.debug("fragmented bytes: {}", page.getFragmentedBytes());
+    if (page.hasRightMostPointer()) {
+      LOG.debug("right most pointer: {}", page.getRightMostPointer());
+    }
     return page;
   }
 

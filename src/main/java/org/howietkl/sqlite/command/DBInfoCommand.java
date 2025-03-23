@@ -1,6 +1,6 @@
 package org.howietkl.sqlite.command;
 
-import org.howietkl.sqlite.PageInfo;
+import org.howietkl.sqlite.PageHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,10 +35,10 @@ public class DBInfoCommand implements Command {
     readTextEncoding(db);
 
     db.position(100);
-    PageInfo pageInfo = PageInfo.get(db);
+    PageHeader pageHeader = PageHeader.get(db);
 
     System.out.println("database page size: " + pageSize);
-    System.out.println("number of tables: " + pageInfo.getCells());
+    System.out.println("number of tables: " + pageHeader.getCells());
   }
 
   static void readTextEncoding(ByteBuffer db) {
