@@ -18,7 +18,7 @@ public class CellTableLeaf {
     cell.rowId = (int) Utils.getVarint(db);
     byte[] payloadBytes = new byte[cell.payloadSize];
     db.get(payloadBytes);
-    cell.payload.wrap(payloadBytes);
+    cell.payload = ByteBuffer.wrap(payloadBytes);
     return cell;
   }
 
@@ -30,7 +30,7 @@ public class CellTableLeaf {
     return rowId;
   }
 
-  public ByteBuffer getPayload() {
+  public ByteBuffer getPayloadRecord() {
     return payload;
   }
 }

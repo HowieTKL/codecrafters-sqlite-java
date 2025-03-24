@@ -5,7 +5,7 @@ package org.howietkl.sqlite;
  * @see <a href="">https://www.sqlite.org/fileformat.html#record_format</a>
  */
 public class SerialType {
-  public final int type;
+  private final int type;
   public SerialType(int type) {
     this.type = type;
   }
@@ -27,6 +27,18 @@ public class SerialType {
       case 6, 7 -> { return 8; } // 64-bit integer signed, float
       default -> throw new IllegalStateException("Unexpected value: " + type);
     }
+  }
+
+  public int getType() {
+    return type;
+  }
+
+  public boolean isBLOB() {
+    return type >= 12 && type % 2 == 0;
+  }
+
+  public boolean isString() {
+    return type >= 13 && type % 2 == 1;
   }
 
   public String toString() {

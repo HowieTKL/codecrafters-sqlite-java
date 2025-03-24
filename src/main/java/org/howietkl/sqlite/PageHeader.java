@@ -54,6 +54,7 @@ public class PageHeader {
    * @param db should be set to appropriate position before calling this method
    */
   public static PageHeader get(ByteBuffer db) {
+    LOG.debug("offset={}", db.position());
     PageHeader page = new PageHeader(
         db.get(), // type
         Short.toUnsignedInt(db.getShort()), // first freeblock
