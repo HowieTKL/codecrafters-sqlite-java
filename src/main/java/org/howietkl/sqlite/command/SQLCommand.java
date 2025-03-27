@@ -15,6 +15,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 public class SQLCommand implements Command {
   private static final Logger LOG = LoggerFactory.getLogger(SQLCommand.class);
@@ -53,16 +54,26 @@ public class SQLCommand implements Command {
     String createTableSQL = (String) record.getRowValues().get(4); // schema - create sql
     CreateTableParser createTableParser = CreateTableParser.parse(createTableSQL);
 
+    Map.Entry<String, String> filter = null;
+    if (parser.getFilter().entrySet().iterator().hasNext()) {
+      filter = parser.getFilter().entrySet().iterator().next();
+    }
+
     // find actual positions
     int[] actualPos = new int[columns.length];
+    int actualFilterPos = -1;
     for (int i = 0; i < columns.length; i++) {
       for (int actual = 0; actual < createTableParser.getColumns().length; ++actual) {
-        if (columns[i].equals(createTableParser.getColumns()[actual].name)) {
+        String actualColumnName = createTableParser.getColumns()[actual].name;
+        if (columns[i].equals(actualColumnName)) {
           actualPos[i] = actual;
+        }
+        if (filter != null && filter.getKey().equals(actualColumnName)) {
+          actualFilterPos = actual;
         }
       }
     }
-    LOG.debug("columns={} actual={}", columns, actualPos);
+    LOG.debug("columns={} actual={} actualFilterPos={}", columns, actualPos, actualFilterPos);
 
     PageHeader tablePageHeader = PageHeader.get(db);
     CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
@@ -72,6 +83,12 @@ public class SQLCommand implements Command {
       CellTableLeaf cell = CellTableLeaf.get(db);
       PayloadRecord tableRowRecord = PayloadRecord.get(cell.getPayloadRecord());
 
+      if (filter != null) {
+        LOG.debug("tableRow={} filterValue={}", tableRowRecord.getRowValues().get(actualFilterPos), filter.getValue());
+        if (!filter.getValue().equals(tableRowRecord.getRowValues().get(actualFilterPos))) {
+          continue;
+        }
+      }
       String[] columnValues = new String[actualPos.length];
       for (int j = 0; j < actualPos.length; ++j) {
         columnValues[j] = (String) tableRowRecord.getRowValues().get(actualPos[j]);

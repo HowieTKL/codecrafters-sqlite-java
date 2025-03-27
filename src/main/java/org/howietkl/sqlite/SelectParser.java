@@ -3,13 +3,15 @@ package org.howietkl.sqlite;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.naming.AuthenticationNotSupportedException;
-import java.lang.reflect.Array;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 public class SelectParser {
   private static final Logger LOG = LoggerFactory.getLogger(SelectParser.class);
   private final String tableName;
   private final String[] columns;
+  private final Map<String, String> filter = new HashMap<String, String>();
 
   private SelectParser(String tableName, String[] columns) {
     this.tableName = tableName;
@@ -38,7 +40,22 @@ public class SelectParser {
     SelectParser parser = new SelectParser(
         stmt[fromIndex + 1],
         String.join("", columns).split(","));
-    LOG.debug("SELECT {} FROM {}", parser.columns, parser.tableName);
+
+    if (whereIndex > 0) {
+      String[] whereFilter = new String[stmt.length - whereIndex - 1];
+      System.arraycopy(stmt, whereIndex + 1, whereFilter, 0, whereFilter.length);
+      // join by " " for cases like: WHERE color = 'Light Green'
+      whereFilter = String.join(" ", whereFilter).split("=");
+      whereFilter = Arrays.stream(whereFilter).map(s -> s.trim()).toArray(String[]::new);
+      if (whereFilter[1].indexOf("'") >= 0) {
+        parser.filter.put(whereFilter[0],
+            whereFilter[1].substring(1, whereFilter[1].length() - 1));
+      }
+
+      LOG.debug("whereFilter={}", Arrays.asList(whereFilter));
+    }
+
+    LOG.debug("SELECT {} FROM {} WHERE {}", parser.columns, parser.tableName, parser.filter);
     return parser;
   }
 
@@ -48,5 +65,9 @@ public class SelectParser {
 
   public String[] getColumns() {
     return columns;
+  }
+
+  public Map<String, String> getFilter() {
+    return filter;
   }
 }
