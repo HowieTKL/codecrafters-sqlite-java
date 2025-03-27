@@ -67,15 +67,17 @@ public class SQLCommand implements Command {
     PageHeader tablePageHeader = PageHeader.get(db);
     CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
 
-    String[] columnValues = new String[tablePageHeader.getCells()];
     for (int i = 0; i < cellPointerArray.getOffsets().length; ++i) {
       db.position(cellPointerArray.getOffsets()[i]);
       CellTableLeaf cell = CellTableLeaf.get(db);
       PayloadRecord tableRowRecord = PayloadRecord.get(cell.getPayloadRecord());
-      columnValues[i] = (String) tableRowRecord.getRowValues().get(actualPos[0]);
-      System.out.println(columnValues[i]);
+
+      String[] columnValues = new String[actualPos.length];
+      for (int j = 0; j < actualPos.length; ++j) {
+        columnValues[j] = (String) tableRowRecord.getRowValues().get(actualPos[j]);
+      }
+      System.out.println(String.join("|", columnValues));
     }
-    LOG.debug("columns={} columnValues={}", columnValues.length, columnValues);
   }
 
   private static int countRows(String databaseFilePath, String table) throws IOException {
