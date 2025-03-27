@@ -17,8 +17,10 @@ public class CellTableLeaf {
     cell.payloadSize = (int) Utils.getVarint(db);
     cell.rowId = (int) Utils.getVarint(db);
     byte[] payloadBytes = new byte[cell.payloadSize];
+    int pos = db.position();
     db.get(payloadBytes);
     cell.payload = ByteBuffer.wrap(payloadBytes);
+    LOG.debug("payloadOffset={} rowId={} payloadSize={}", pos, cell.rowId, cell.payloadSize);
     return cell;
   }
 

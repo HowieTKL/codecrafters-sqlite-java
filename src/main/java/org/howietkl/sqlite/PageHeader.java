@@ -13,6 +13,7 @@ import java.util.Map;
 public class PageHeader {
   private static final Logger LOG = LoggerFactory.getLogger(PageHeader.class);
 
+  private final int position;
   private final Type type;
   private final int firstFreeBlock;
   private final int cells;
@@ -40,7 +41,8 @@ public class PageHeader {
     }
   }
 
-  private PageHeader(byte type, int firstFreeBlock, int cells, int cellContentStart, int fragmentedBytes) {
+  private PageHeader(int pos, byte type, int firstFreeBlock, int cells, int cellContentStart, int fragmentedBytes) {
+    this.position = pos;
     this.type = Type.get(type);
     this.firstFreeBlock = firstFreeBlock;
     this.cells = cells;
@@ -54,8 +56,8 @@ public class PageHeader {
    * @param db should be set to appropriate position before calling this method
    */
   public static PageHeader get(ByteBuffer db) {
-    LOG.debug("offset={}", db.position());
     PageHeader page = new PageHeader(
+        db.position(),
         db.get(), // type
         Short.toUnsignedInt(db.getShort()), // first freeblock
         Short.toUnsignedInt(db.getShort()), // #cells
@@ -68,6 +70,7 @@ public class PageHeader {
       }
     }
 
+    LOG.debug("pos={}", page.getPosition());
     LOG.debug("type b-tree: {} [{}]", page.getType(), page.getType().value);
     LOG.debug("first freeblock: {}", page.getFirstFreeBlock());
     LOG.debug("cells: {}", page.getCells());
@@ -77,6 +80,10 @@ public class PageHeader {
       LOG.debug("right most pointer: {}", page.getRightMostPointer());
     }
     return page;
+  }
+
+  public int getPosition() {
+    return position;
   }
 
   public Type getType() {

@@ -2,9 +2,11 @@ package org.howietkl.sqlite.command;
 
 import org.howietkl.sqlite.CellPointerArray;
 import org.howietkl.sqlite.CellTableLeaf;
+import org.howietkl.sqlite.CreateTableParser;
 import org.howietkl.sqlite.DBHeader;
 import org.howietkl.sqlite.PageHeader;
 import org.howietkl.sqlite.PayloadRecord;
+import org.howietkl.sqlite.SelectParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,15 +25,18 @@ public class SQLCommand implements Command {
   }
 
   static void executeSQL(String databaseFilePath, String sql) throws IOException {
-    String[] args = sql.split(" ");
-    String table2Count = args[args.length - 1];
+    SelectParser parser = SelectParser.parse(sql);
 
-    countRows(databaseFilePath, table2Count);
-
-
+    String[] columns = parser.getColumns();
+    if (columns.length == 1 && "COUNT(*)".equalsIgnoreCase(columns[0])) {
+      countRows(databaseFilePath, parser.getTableName());
+    } else {
+      selectColumns(databaseFilePath, parser);
+    }
   }
 
-  private static int countRows(String databaseFilePath, String table2Count) throws IOException {
+  private static void selectColumns(String databaseFilePath, SelectParser parser) throws IOException {
+    String[] columns = parser.getColumns();
     ByteBuffer db = ByteBuffer.wrap(Files.readAllBytes(Path.of(databaseFilePath)))
         .order(ByteOrder.BIG_ENDIAN)
         .asReadOnlyBuffer();
@@ -40,27 +45,63 @@ public class SQLCommand implements Command {
 
     DBHeader dbheader = DBHeader.get(db);
     db.position(100);
-    PageHeader pageHeader = PageHeader.get(db);
-    CellPointerArray cellPointerArray = CellPointerArray.get(pageHeader, db);
+    PageHeader schemaPageHeader = PageHeader.get(db);
 
-    PayloadRecord record = null;
+    PayloadRecord record = PayloadRecord.getPayloadRecord(db, schemaPageHeader, parser.getTableName());
+    configureOffsetFromRootPage(record, dbheader, db);
+
+    String createTableSQL = (String) record.getRowValues().get(4); // schema - create sql
+    CreateTableParser createTableParser = CreateTableParser.parse(createTableSQL);
+
+    // find actual positions
+    int[] actualPos = new int[columns.length];
+    for (int i = 0; i < columns.length; i++) {
+      for (int actual = 0; actual < createTableParser.getColumns().length; ++actual) {
+        if (columns[i].equals(createTableParser.getColumns()[actual].name)) {
+          actualPos[i] = actual;
+        }
+      }
+    }
+    LOG.debug("columns={} actual={}", columns, actualPos);
+
+    PageHeader tablePageHeader = PageHeader.get(db);
+    CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
+
+    String[] columnValues = new String[tablePageHeader.getCells()];
     for (int i = 0; i < cellPointerArray.getOffsets().length; ++i) {
       db.position(cellPointerArray.getOffsets()[i]);
       CellTableLeaf cell = CellTableLeaf.get(db);
-      record = PayloadRecord.get(cell.getPayloadRecord());
-      String tableName = (String) record.getRowValues().get(2);
-      if (table2Count.equals(tableName)) {
-        break;
-      }
+      PayloadRecord tableRowRecord = PayloadRecord.get(cell.getPayloadRecord());
+      columnValues[i] = (String) tableRowRecord.getRowValues().get(actualPos[0]);
+      System.out.println(columnValues[i]);
     }
-
-    byte rootPage = (byte) record.getRowValues().get(3);
-    int offset = (rootPage - 1) * dbheader.getPageSize();
-    LOG.debug("rootPage={} offset={}", rootPage, offset);
-    db.position(offset);
-    pageHeader = PageHeader.get(db);
-
-    System.out.println(pageHeader.getCells());
-    return pageHeader.getCells();
+    LOG.debug("columns={} columnValues={}", columnValues.length, columnValues);
   }
+
+  private static int countRows(String databaseFilePath, String table) throws IOException {
+    ByteBuffer db = ByteBuffer.wrap(Files.readAllBytes(Path.of(databaseFilePath)))
+        .order(ByteOrder.BIG_ENDIAN)
+        .asReadOnlyBuffer();
+
+    DBInfoCommand.readTextEncoding(db);
+
+    DBHeader dbheader = DBHeader.get(db);
+    db.position(100);
+    PageHeader schemaPageHeader = PageHeader.get(db);
+
+    PayloadRecord record = PayloadRecord.getPayloadRecord(db, schemaPageHeader, table);
+    configureOffsetFromRootPage(record, dbheader, db);
+
+    PageHeader tablePageHeader = PageHeader.get(db);
+    System.out.println(tablePageHeader.getCells());
+    return tablePageHeader.getCells();
+  }
+
+  private static void configureOffsetFromRootPage(PayloadRecord record, DBHeader dbheader, ByteBuffer db) {
+    byte rootPage = (byte) record.getRowValues().get(3); // schema - root page
+    int offset = (rootPage - 1) * dbheader.getPageSize();
+    db.position(offset);
+    LOG.debug("rootPage={} offset={}", rootPage, offset);
+  }
+
 }

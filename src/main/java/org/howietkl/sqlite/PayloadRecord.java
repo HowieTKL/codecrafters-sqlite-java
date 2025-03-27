@@ -67,6 +67,20 @@ public class PayloadRecord {
     return rec;
   }
 
+  public static PayloadRecord getPayloadRecord(ByteBuffer db, PageHeader pageHeader, String table) {
+    CellPointerArray cellPointerArray = CellPointerArray.get(pageHeader, db);
+    for (int i = 0; i<cellPointerArray.getOffsets().length; ++i) {
+      db.position(cellPointerArray.getOffsets()[i]);
+      CellTableLeaf cell = CellTableLeaf.get(db);
+      PayloadRecord record = get(cell.getPayloadRecord());
+      String tableName = (String) record.getRowValues().get(2); // tbl_name
+      if (table.equals(tableName)) {
+        return record;
+      }
+    }
+    return null;
+}
+
   public List<SerialType> getSerialTypes() {
     return serialTypes;
   }
