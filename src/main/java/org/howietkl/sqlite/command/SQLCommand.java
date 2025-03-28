@@ -1,11 +1,14 @@
 package org.howietkl.sqlite.command;
 
+import org.howietkl.sqlite.BTreeType;
 import org.howietkl.sqlite.CellPointerArray;
+import org.howietkl.sqlite.CellTableInterior;
 import org.howietkl.sqlite.CellTableLeaf;
 import org.howietkl.sqlite.CreateTableParser;
 import org.howietkl.sqlite.DBHeader;
 import org.howietkl.sqlite.PageHeader;
 import org.howietkl.sqlite.PayloadRecord;
+import org.howietkl.sqlite.Row;
 import org.howietkl.sqlite.SelectParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +18,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class SQLCommand implements Command {
@@ -49,7 +54,7 @@ public class SQLCommand implements Command {
     PageHeader schemaPageHeader = PageHeader.get(db);
 
     PayloadRecord record = PayloadRecord.getPayloadRecord(db, schemaPageHeader, parser.getTableName());
-    configureOffsetFromRootPage(record, dbheader, db);
+    configureOffsetFromRootPage(record, dbheader.getPageSize(), db);
 
     String createTableSQL = (String) record.getRowValues().get(4); // schema - create sql
     CreateTableParser createTableParser = CreateTableParser.parse(createTableSQL);
@@ -59,41 +64,34 @@ public class SQLCommand implements Command {
       filter = parser.getFilter().entrySet().iterator().next();
     }
 
-    // find actual positions
-    int[] actualPos = new int[columns.length];
-    int actualFilterPos = -1;
-    for (int i = 0; i < columns.length; i++) {
-      for (int actual = 0; actual < createTableParser.getColumns().length; ++actual) {
-        String actualColumnName = createTableParser.getColumns()[actual].name;
-        if (columns[i].equals(actualColumnName)) {
-          actualPos[i] = actual;
-        }
-        if (filter != null && filter.getKey().equals(actualColumnName)) {
-          actualFilterPos = actual;
-        }
-      }
-    }
-    LOG.debug("columns={} actual={} actualFilterPos={}", columns, actualPos, actualFilterPos);
-
     PageHeader tablePageHeader = PageHeader.get(db);
     CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
-
+    List<Row> rows = new ArrayList<>();
     for (int i = 0; i < cellPointerArray.getOffsets().length; ++i) {
       db.position(cellPointerArray.getOffsets()[i]);
-      CellTableLeaf cell = CellTableLeaf.get(db);
-      PayloadRecord tableRowRecord = PayloadRecord.get(cell.getPayloadRecord());
+      if (tablePageHeader.getType() == BTreeType.LEAF_TABLE) {
+        CellTableLeaf cell = CellTableLeaf.get(db);
+        PayloadRecord tableRowRecord = PayloadRecord.get(cell.getPayloadRecord());
 
-      if (filter != null) {
-        LOG.debug("tableRow={} filterValue={}", tableRowRecord.getRowValues().get(actualFilterPos), filter.getValue());
-        if (!filter.getValue().equals(tableRowRecord.getRowValues().get(actualFilterPos))) {
-          continue;
+        Row row = new Row();
+        row.setColumnMetadata(createTableParser);
+        row.setValues(tableRowRecord.getRowValues());
+        row.setRowId(cell.getRowId());
+        rows.add(row);
+
+        if (filter != null) {
+          if (!filter.getValue().equals(row.getColumnValue(filter.getKey()))) {
+            continue;
+          }
         }
+        String[] columnValues = new String[columns.length];
+        for (int j = 0; j < columnValues.length; ++j) {
+          columnValues[j] = (String) row.getColumnValue(columns[j]);
+        }
+        System.out.println(String.join("|", columnValues));
+      } else if (tablePageHeader.getType() == BTreeType.INTERIOR_TABLE) {
+        CellTableInterior cell = CellTableInterior.get(db);
       }
-      String[] columnValues = new String[actualPos.length];
-      for (int j = 0; j < actualPos.length; ++j) {
-        columnValues[j] = (String) tableRowRecord.getRowValues().get(actualPos[j]);
-      }
-      System.out.println(String.join("|", columnValues));
     }
   }
 
@@ -109,16 +107,16 @@ public class SQLCommand implements Command {
     PageHeader schemaPageHeader = PageHeader.get(db);
 
     PayloadRecord record = PayloadRecord.getPayloadRecord(db, schemaPageHeader, table);
-    configureOffsetFromRootPage(record, dbheader, db);
+    configureOffsetFromRootPage(record, dbheader.getPageSize(), db);
 
     PageHeader tablePageHeader = PageHeader.get(db);
     System.out.println(tablePageHeader.getCells());
     return tablePageHeader.getCells();
   }
 
-  private static void configureOffsetFromRootPage(PayloadRecord record, DBHeader dbheader, ByteBuffer db) {
+  private static void configureOffsetFromRootPage(PayloadRecord record, int pageSize, ByteBuffer db) {
     byte rootPage = (byte) record.getRowValues().get(3); // schema - root page
-    int offset = (rootPage - 1) * dbheader.getPageSize();
+    int offset = (rootPage - 1) * pageSize;
     db.position(offset);
     LOG.debug("rootPage={} offset={}", rootPage, offset);
   }

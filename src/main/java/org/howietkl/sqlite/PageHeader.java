@@ -4,8 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * @see <a href="https://www.sqlite.org/fileformat.html#b_tree_pages">B-tree Pages</a>
@@ -14,36 +12,16 @@ public class PageHeader {
   private static final Logger LOG = LoggerFactory.getLogger(PageHeader.class);
 
   private final int position;
-  private final Type type;
+  private final BTreeType type;
   private final int firstFreeBlock;
   private final int cells;
   private final int cellContentStart;
   private final int fragmentedBytes;
   private long rightMostPointer = -1;
 
-  public enum Type {
-    INTERIOR_INDEX(2),
-    INTERIOR_TABLE(5),
-    LEAF_INDEX(10),
-    LEAF_TABLE(13);
-    public final int value;
-    private static final Map<Integer, Type> lookup = new HashMap<>();
-    static {
-      for (Type type : Type.values()) {
-        lookup.put(type.value, type);
-      }
-    }
-    Type(int value) {
-      this.value = value;
-    }
-    public static Type get(int value) {
-      return lookup.get(value);
-    }
-  }
-
   private PageHeader(int pos, byte type, int firstFreeBlock, int cells, int cellContentStart, int fragmentedBytes) {
     this.position = pos;
-    this.type = Type.get(type);
+    this.type = BTreeType.get(type);
     this.firstFreeBlock = firstFreeBlock;
     this.cells = cells;
     this.cellContentStart = cellContentStart == 0 ? 65536 : cellContentStart;
@@ -65,7 +43,7 @@ public class PageHeader {
         Byte.toUnsignedInt(db.get())); // fragmented free bytes
 
     switch (page.type) {
-      case Type.INTERIOR_TABLE, Type.INTERIOR_INDEX -> {
+      case BTreeType.INTERIOR_TABLE, BTreeType.INTERIOR_INDEX -> {
         page.rightMostPointer = Integer.toUnsignedLong(db.getInt());
       }
     }
@@ -86,7 +64,7 @@ public class PageHeader {
     return position;
   }
 
-  public Type getType() {
+  public BTreeType getType() {
     return type;
   }
 
@@ -107,7 +85,7 @@ public class PageHeader {
   }
 
   public boolean hasRightMostPointer() {
-    return type == Type.INTERIOR_TABLE || type == Type.INTERIOR_INDEX;
+    return type == BTreeType.INTERIOR_TABLE || type == BTreeType.INTERIOR_INDEX;
   }
 
   public long getRightMostPointer() {

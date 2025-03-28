@@ -3,23 +3,18 @@ package org.howietkl.sqlite;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class CreateTableParser {
   private static final Logger LOG = LoggerFactory.getLogger(CreateTableParser.class);
   private String tableName;
   private ColumnDef[] columns;
+  private final Map<String, Integer> columnIndex = new HashMap<String, Integer>();
 
-  public static class ColumnDef {
-    public final String name;
-    public final String type;
-
-    private ColumnDef(String name, String type) {
-      this.name = name;
-      this.type = type;
-    }
-
-    @Override
-    public String toString() {
-      return String.format("%s:%s", name, type);
+  public record ColumnDef(String name, String type) {
+    public ColumnDef(String name) {
+      this(name, null);
     }
   }
 
@@ -44,16 +39,16 @@ public class CreateTableParser {
       String[] colDef = colDefs[i].trim().split(" ");
       ColumnDef col;
       if (colDef.length == 1) {
-        col = new ColumnDef(colDef[0], null);
+        col = new ColumnDef(colDef[0]);
       } else {
         col = new ColumnDef(colDef[0], colDef[1]);
 
       }
       createTable.columns[i] = col;
+      createTable.columnIndex.put(col.name(), i);
     }
 
     LOG.debug("{} {} {} {}", expectCreate, expectTable, createTable.tableName, createTable.columns);
-
     return createTable;
   }
 
@@ -63,6 +58,10 @@ public class CreateTableParser {
 
   public ColumnDef[] getColumns() {
     return columns;
+  }
+
+  public Map<String, Integer> getColumnIndexLookup() {
+    return columnIndex;
   }
 
 }
