@@ -41,8 +41,7 @@ public class SQLCommand implements Command {
     }
   }
 
-  private static void selectColumns(String databaseFilePath, SelectParser parser) throws IOException {
-    List<String> columns = parser.getColumns();
+  private static void selectColumns(String databaseFilePath, SelectParser selectParser) throws IOException {
     ByteBuffer db = ByteBuffer.wrap(Files.readAllBytes(Path.of(databaseFilePath)))
         .order(ByteOrder.BIG_ENDIAN)
         .asReadOnlyBuffer();
@@ -53,23 +52,26 @@ public class SQLCommand implements Command {
     db.position(100);
     PageHeader schemaPageHeader = PageHeader.get(db);
 
-    PayloadRecord record = PayloadRecord.getPayloadRecord(db, schemaPageHeader, parser.getTableName());
-    configureOffsetFromRootPage(record, dbheader.getPageSize(), db);
+    PayloadRecord record = PayloadRecord.getPayloadRecord(db, schemaPageHeader, selectParser.getTableName());
 
-    String createTableSQL = (String) record.getRowValues().get(4); // schema - create sql
-    CreateTableParser createTableParser = CreateTableParser.parse(createTableSQL);
+    processPage((byte) record.getRowValues().get(3), db, selectParser, record, dbheader);
+  }
 
-    final Map.Entry<String, String> filter = parser.getFilter().entrySet().iterator().hasNext()
-        ? parser.getFilter().entrySet().iterator().next()
-        : null;
-
+  private static void processPage(long rootPage, ByteBuffer db, SelectParser parser, PayloadRecord schemaRecord, DBHeader dbheader) {
+    configureOffsetFromRootPage(rootPage, dbheader.getPageSize(), db);
     PageHeader tablePageHeader = PageHeader.get(db);
-    if (tablePageHeader.getType() == BTreeType.LEAF_TABLE) {
-      CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
 
+    if (tablePageHeader.getType() == BTreeType.LEAF_TABLE) {
+      final List<String> columns = parser.getColumns();
+      final String createTableSQL = (String) schemaRecord.getRowValues().get(4); // schema - create sql
+      final CreateTableParser createTableParser = CreateTableParser.parse(createTableSQL);
+      final Map.Entry<String, String> filter = parser.getFilter().entrySet().iterator().hasNext()
+          ? parser.getFilter().entrySet().iterator().next()
+          : null;
+      CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
       // map offset -> row
       // with row we can filter WHERE clause
-      // and display columns with map
+      // map row -> columns - for display
       cellPointerArray.getOffsets().stream()
           .map(offset -> {
             db.position(offset);
@@ -81,16 +83,21 @@ public class SQLCommand implements Command {
                 .setRowId(cell.getRowId());})
           .filter(row -> filter == null || filter.getValue().equals(row.getColumnValue(filter.getKey())))
           .map(row -> columns.stream()
-                .map(column -> (String) row.getColumnValue(column))
+                .map(column -> "id".equals(column)
+                    ? Long.toString(row.getRowId())
+                    :(String) row.getColumnValue(column))
                 .collect(Collectors.joining("|")))
           .forEach(System.out::println);
 
     } else if (tablePageHeader.getType() == BTreeType.INTERIOR_TABLE) {
       CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
+      if (tablePageHeader.hasRightMostPointer()) {
+        processPage(tablePageHeader.getRightMostPointer(), db, parser, schemaRecord, dbheader);
+      }
       cellPointerArray.getOffsets().forEach(offset -> {
         db.position(offset);
         CellTableInterior cell = CellTableInterior.get(db);
-
+        processPage(cell.getLeftChildPageNumber(), db, parser, schemaRecord, dbheader);
       });
     }
   }
@@ -107,18 +114,18 @@ public class SQLCommand implements Command {
     PageHeader schemaPageHeader = PageHeader.get(db);
 
     PayloadRecord record = PayloadRecord.getPayloadRecord(db, schemaPageHeader, table);
-    configureOffsetFromRootPage(record, dbheader.getPageSize(), db);
+    // schema - root page
+    configureOffsetFromRootPage((byte) record.getRowValues().get(3), dbheader.getPageSize(), db);
 
     PageHeader tablePageHeader = PageHeader.get(db);
     System.out.println(tablePageHeader.getCells());
     return tablePageHeader.getCells();
   }
 
-  private static void configureOffsetFromRootPage(PayloadRecord record, int pageSize, ByteBuffer db) {
-    byte rootPage = (byte) record.getRowValues().get(3); // schema - root page
-    int offset = (rootPage - 1) * pageSize;
-    db.position(offset);
-    LOG.debug("rootPage={} offset={}", rootPage, offset);
+  private static void configureOffsetFromRootPage(long rootPage, int pageSize, ByteBuffer db) {
+    long offset = (rootPage - 1) * pageSize;
+    db.position((int)offset);
+    LOG.trace("rootPage={} offset={}", rootPage, offset);
   }
 
 }

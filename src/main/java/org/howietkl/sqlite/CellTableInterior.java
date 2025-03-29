@@ -15,7 +15,7 @@ public class CellTableInterior implements Cell {
 
     cell.leftChildPageNumber = db.getInt();
     cell.rowId = Utils.getVarint(db);
-    LOG.debug("leftChildPage#={} rowId={}", cell.leftChildPageNumber, cell.rowId);
+    LOG.trace("leftChildPage#={} rowId={}", cell.leftChildPageNumber, cell.rowId);
     return cell;
   }
 
