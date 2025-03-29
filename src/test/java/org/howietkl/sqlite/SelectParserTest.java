@@ -20,19 +20,19 @@ class SelectParserTest {
   void parse() {
     SelectParser parser = SelectParser.parse("select name from apples");
     assertEquals("apples", parser.getTableName());
-    assertEquals(1, parser.getColumns().length);
-    assertEquals("name", parser.getColumns()[0]);
+    assertEquals(1, parser.getColumns().size());
+    assertEquals("name", parser.getColumns().get(0));
 
     parser = SelectParser.parse("select name from apples where name = 'gala'");
     assertEquals("apples", parser.getTableName());
-    assertEquals(1, parser.getColumns().length);
+    assertEquals(1, parser.getColumns().size());
 
     parser = SelectParser.parse("select name, color  , description from apples where name = 'gala'");
     assertEquals("apples", parser.getTableName());
-    assertEquals(3, parser.getColumns().length);
-    assertEquals("name", parser.getColumns()[0]);
-    assertEquals("color", parser.getColumns()[1]);
-    assertEquals("description", parser.getColumns()[2]);
+    assertEquals(3, parser.getColumns().size());
+    assertEquals("name", parser.getColumns().get(0));
+    assertEquals("color", parser.getColumns().get(1));
+    assertEquals("description", parser.getColumns().get(2));
 
   }
 }

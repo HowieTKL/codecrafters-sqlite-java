@@ -11,6 +11,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class TablesCommand implements Command {
   private static final Logger LOG = LoggerFactory.getLogger(TablesCommand.class);
@@ -31,14 +34,14 @@ public class TablesCommand implements Command {
     PageHeader pageHeader = PageHeader.get(db);
     CellPointerArray cellPointerArray = CellPointerArray.get(pageHeader, db);
 
-    String[] tableNames = new String[pageHeader.getCells()];
-    for (int i = 0; i < cellPointerArray.getOffsets().length; ++i) {
-      db.position(cellPointerArray.getOffsets()[i]);
-      CellTableLeaf cell = CellTableLeaf.get(db);
-      PayloadRecord record = PayloadRecord.get(cell.getPayloadRecord());
-      tableNames[i] = (String) record.getRowValues().get(2);
-    }
-
-    System.out.println(String.join(" ", tableNames));
+    String tableNames = cellPointerArray.getOffsets().stream()
+        .map(offset -> {
+          db.position(offset);
+          CellTableLeaf cell = CellTableLeaf.get(db);
+          PayloadRecord record = PayloadRecord.get(cell.getPayloadRecord());
+          return (String) record.getRowValues().get(2);})
+        .collect(Collectors.joining(" "));
+    System.out.println(tableNames);
   }
+
 }

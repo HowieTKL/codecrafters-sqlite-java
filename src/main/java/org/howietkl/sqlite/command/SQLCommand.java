@@ -18,9 +18,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class SQLCommand implements Command {
   private static final Logger LOG = LoggerFactory.getLogger(SQLCommand.class);
@@ -33,8 +33,8 @@ public class SQLCommand implements Command {
   static void executeSQL(String databaseFilePath, String sql) throws IOException {
     SelectParser parser = SelectParser.parse(sql);
 
-    String[] columns = parser.getColumns();
-    if (columns.length == 1 && "COUNT(*)".equalsIgnoreCase(columns[0])) {
+    List<String> columns = parser.getColumns();
+    if (columns.size() == 1 && "COUNT(*)".equalsIgnoreCase(columns.get(0))) {
       countRows(databaseFilePath, parser.getTableName());
     } else {
       selectColumns(databaseFilePath, parser);
@@ -42,7 +42,7 @@ public class SQLCommand implements Command {
   }
 
   private static void selectColumns(String databaseFilePath, SelectParser parser) throws IOException {
-    String[] columns = parser.getColumns();
+    List<String> columns = parser.getColumns();
     ByteBuffer db = ByteBuffer.wrap(Files.readAllBytes(Path.of(databaseFilePath)))
         .order(ByteOrder.BIG_ENDIAN)
         .asReadOnlyBuffer();
@@ -59,39 +59,39 @@ public class SQLCommand implements Command {
     String createTableSQL = (String) record.getRowValues().get(4); // schema - create sql
     CreateTableParser createTableParser = CreateTableParser.parse(createTableSQL);
 
-    Map.Entry<String, String> filter = null;
-    if (parser.getFilter().entrySet().iterator().hasNext()) {
-      filter = parser.getFilter().entrySet().iterator().next();
-    }
+    final Map.Entry<String, String> filter = parser.getFilter().entrySet().iterator().hasNext()
+        ? parser.getFilter().entrySet().iterator().next()
+        : null;
 
     PageHeader tablePageHeader = PageHeader.get(db);
-    CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
-    List<Row> rows = new ArrayList<>();
-    for (int i = 0; i < cellPointerArray.getOffsets().length; ++i) {
-      db.position(cellPointerArray.getOffsets()[i]);
-      if (tablePageHeader.getType() == BTreeType.LEAF_TABLE) {
-        CellTableLeaf cell = CellTableLeaf.get(db);
-        PayloadRecord tableRowRecord = PayloadRecord.get(cell.getPayloadRecord());
+    if (tablePageHeader.getType() == BTreeType.LEAF_TABLE) {
+      CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
 
-        Row row = new Row();
-        row.setColumnMetadata(createTableParser);
-        row.setValues(tableRowRecord.getRowValues());
-        row.setRowId(cell.getRowId());
-        rows.add(row);
+      // map offset -> row
+      // with row we can filter WHERE clause
+      // and display columns with map
+      cellPointerArray.getOffsets().stream()
+          .map(offset -> {
+            db.position(offset);
+            CellTableLeaf cell = CellTableLeaf.get(db);
+            PayloadRecord tableRowRecord = PayloadRecord.get(cell.getPayloadRecord());
+            return new Row()
+                .setColumnMetadata(createTableParser)
+                .setValues(tableRowRecord.getRowValues())
+                .setRowId(cell.getRowId());})
+          .filter(row -> filter == null || filter.getValue().equals(row.getColumnValue(filter.getKey())))
+          .map(row -> columns.stream()
+                .map(column -> (String) row.getColumnValue(column))
+                .collect(Collectors.joining("|")))
+          .forEach(System.out::println);
 
-        if (filter != null) {
-          if (!filter.getValue().equals(row.getColumnValue(filter.getKey()))) {
-            continue;
-          }
-        }
-        String[] columnValues = new String[columns.length];
-        for (int j = 0; j < columnValues.length; ++j) {
-          columnValues[j] = (String) row.getColumnValue(columns[j]);
-        }
-        System.out.println(String.join("|", columnValues));
-      } else if (tablePageHeader.getType() == BTreeType.INTERIOR_TABLE) {
+    } else if (tablePageHeader.getType() == BTreeType.INTERIOR_TABLE) {
+      CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
+      cellPointerArray.getOffsets().forEach(offset -> {
+        db.position(offset);
         CellTableInterior cell = CellTableInterior.get(db);
-      }
+
+      });
     }
   }
 
