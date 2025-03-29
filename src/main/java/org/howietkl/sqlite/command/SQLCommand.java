@@ -16,8 +16,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -42,9 +44,13 @@ public class SQLCommand implements Command {
   }
 
   private static void selectColumns(String databaseFilePath, SelectParser selectParser) throws IOException {
-    ByteBuffer db = ByteBuffer.wrap(Files.readAllBytes(Path.of(databaseFilePath)))
-        .order(ByteOrder.BIG_ENDIAN)
-        .asReadOnlyBuffer();
+    Path path = Path.of(databaseFilePath);
+    ByteBuffer db;
+    try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+      db = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size())
+          .order(ByteOrder.BIG_ENDIAN)
+          .asReadOnlyBuffer();
+    }
 
     DBInfoCommand.readTextEncoding(db);
 
