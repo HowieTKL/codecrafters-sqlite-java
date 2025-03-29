@@ -19,7 +19,7 @@ public class CellTableLeaf implements Cell {
     int pos = db.position();
     db.get(payloadBytes);
     cell.payload = ByteBuffer.wrap(payloadBytes);
-    LOG.debug("payloadOffset={} rowId={} payloadSize={}", pos, cell.rowId, cell.payloadSize);
+    LOG.trace("payloadOffset={} rowId={} payloadSize={}", pos, cell.rowId, cell.payloadSize);
     return cell;
   }
 

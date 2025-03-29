@@ -32,7 +32,7 @@ public class PayloadRecord {
       prevPos = payload.position();
       recordHeaderSize -= size;
     }
-    LOG.debug("serialTypes {}", rec.serialTypes);
+    LOG.trace("serialTypes {}", rec.serialTypes);
     for (SerialType serialType : rec.serialTypes) {
       if (serialType.getType() == 1) {
         rec.getRowValues().add(payload.get());
@@ -63,7 +63,7 @@ public class PayloadRecord {
         throw new UnsupportedOperationException("Unsupported serial type: " + serialType);
       }
     }
-    LOG.debug("rowValues {}", rec.rowValues);
+    LOG.trace("rowValues {}", rec.rowValues);
     return rec;
   }
 

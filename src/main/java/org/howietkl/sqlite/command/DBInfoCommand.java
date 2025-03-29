@@ -30,7 +30,6 @@ public class DBInfoCommand implements Command {
 
     db.position(28);
     int pages = db.getInt();
-    LOG.info("Pages: {}", pages);
 
     readTextEncoding(db);
 
@@ -50,7 +49,7 @@ public class DBInfoCommand implements Command {
       case 3 -> TEXT_ENCODING = StandardCharsets.UTF_16BE;
       default -> throw new IllegalStateException("Unexpected text encoding: " + textEncodingValue);
     }
-    LOG.info("Text encoding: {} [{}]", TEXT_ENCODING, textEncodingValue);
+    LOG.trace("Text encoding: {} [{}]", TEXT_ENCODING, textEncodingValue);
   }
 
 }

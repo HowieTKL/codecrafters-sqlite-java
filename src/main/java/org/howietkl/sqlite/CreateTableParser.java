@@ -48,7 +48,7 @@ public class CreateTableParser {
       createTable.columnIndex.put(col.name(), i);
     }
 
-    LOG.debug("{} {} {} {}", expectCreate, expectTable, createTable.tableName, createTable.columns);
+    LOG.trace("{} {} {} {}", expectCreate, expectTable, createTable.tableName, createTable.columns);
     return createTable;
   }
 

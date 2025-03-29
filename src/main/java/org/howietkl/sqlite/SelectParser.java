@@ -53,10 +53,10 @@ public class SelectParser {
             whereFilter[1].substring(1, whereFilter[1].length() - 1));
       }
 
-      LOG.debug("whereFilter={}", Arrays.asList(whereFilter));
+      LOG.trace("whereFilter={}", Arrays.asList(whereFilter));
     }
 
-    LOG.debug("SELECT {} FROM {} WHERE {}", parser.columns, parser.tableName, parser.filter);
+    LOG.trace("SELECT {} FROM {} WHERE {}", parser.columns, parser.tableName, parser.filter);
     return parser;
   }
 

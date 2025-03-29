@@ -48,14 +48,14 @@ public class PageHeader {
       }
     }
 
-    LOG.debug("pos={}", page.getPosition());
-    LOG.debug("type b-tree: {} [{}]", page.getType(), page.getType().value);
-    LOG.debug("first freeblock: {}", page.getFirstFreeBlock());
-    LOG.debug("cells: {}", page.getCells());
-    LOG.debug("cell content start: {}", page.getCellContentStart());
-    LOG.debug("fragmented bytes: {}", page.getFragmentedBytes());
+    LOG.trace("pos={}", page.getPosition());
+    LOG.trace("type b-tree: {} [{}]", page.getType(), page.getType().value);
+    LOG.trace("first freeblock: {}", page.getFirstFreeBlock());
+    LOG.trace("cells: {}", page.getCells());
+    LOG.trace("cell content start: {}", page.getCellContentStart());
+    LOG.trace("fragmented bytes: {}", page.getFragmentedBytes());
     if (page.hasRightMostPointer()) {
-      LOG.debug("right most pointer: {}", page.getRightMostPointer());
+      LOG.trace("right most pointer: {}", page.getRightMostPointer());
     }
     return page;
   }

@@ -26,7 +26,7 @@ public class CellPointerArray {
     for (int i = 0; i < pageHeader.getCells(); ++i) {
       int offset = Short.toUnsignedInt(db.getShort()) + baseOffset;
       offsets.add(offset);
-      LOG.debug("{} pos={}", i, offset);
+      LOG.trace("{} pos={}", i, offset);
     }
     return new CellPointerArray(offsets);
   }
