@@ -44,6 +44,7 @@ public class SQLCommand implements Command {
   }
 
   private static void selectColumns(String databaseFilePath, SelectParser selectParser) throws IOException {
+    long startTime = System.currentTimeMillis();
     Path path = Path.of(databaseFilePath);
     ByteBuffer db;
     try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
@@ -61,6 +62,8 @@ public class SQLCommand implements Command {
     PayloadRecord record = PayloadRecord.getPayloadRecord(db, schemaPageHeader, selectParser.getTableName());
 
     processPage((byte) record.getRowValues().get(3), db, selectParser, record, dbheader);
+
+    LOG.info("Query time={}ms", System.currentTimeMillis() - startTime);
   }
 
   private static void processPage(long rootPage, ByteBuffer db, SelectParser parser, PayloadRecord schemaRecord, DBHeader dbheader) {
