@@ -73,17 +73,22 @@ public class PayloadRecord {
         throw new UnsupportedOperationException("Unsupported serial type: " + serialType);
       }
     }
-    LOG.trace("rowValues={} serialTypes={}", rec.rowValues, rec.serialTypes);
+    LOG.trace("{}", rec.serialTypes);
+    LOG.trace("{}", rec.rowValues);
     return rec;
   }
 
-  public static PayloadRecord getPayloadRecord(ByteBuffer db, PageHeader pageHeader, String table) {
+  public static PayloadRecord getTableRecord(ByteBuffer db, PageHeader pageHeader, String table) {
     CellPointerArray cellPointerArray = CellPointerArray.get(pageHeader, db);
-    return cellPointerArray.getOffsets().stream().map(offset -> {
+    for (int offset: cellPointerArray.getOffsets()) {
       db.position(offset);
       CellTableLeaf cell = CellTableLeaf.get(db);
-      return get(cell.getPayloadRecord());
-    }).filter(record -> record.getRowValues().get(2).equals(table)).findFirst().orElse(null);
+      PayloadRecord record = get(cell.getPayloadRecord());
+      if (table.equals(record.getRowValues().get(SchemaHeaders.tbl_name.pos()))) {
+        return record;
+      }
+    }
+    return null;
 }
 
   public List<SerialType> getSerialTypes() {
