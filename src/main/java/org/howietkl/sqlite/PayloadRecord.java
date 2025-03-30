@@ -32,18 +32,28 @@ public class PayloadRecord {
       prevPos = payload.position();
       recordHeaderSize -= size;
     }
-    LOG.trace("serialTypes {}", rec.serialTypes);
     for (SerialType serialType : rec.serialTypes) {
       if (serialType.getType() == 1) {
         rec.getRowValues().add(payload.get());
       } else if (serialType.getType() == 0) {
         rec.getRowValues().add(null);
       } else if (serialType.getType() == 8) {
-        rec.getRowValues().add(Integer.valueOf(0));
+        rec.getRowValues().add(0);
       } else if (serialType.getType() == 9) {
-        rec.getRowValues().add(Integer.valueOf(1));
+        rec.getRowValues().add(1);
       } else if (serialType.getType() == 2) {
         rec.getRowValues().add(payload.getShort());
+      } else if (serialType.getType() == 3) {
+        byte[] bytes = new byte[3];
+        payload.get(bytes);
+        int val = ((bytes[0] & 0xFF) << 16) |
+            ((bytes[1] & 0xFF) << 8) |
+            (bytes[2] & 0xFF);
+
+        if ((val & 0x00800000) != 0) {
+          val |= 0xFF000000;
+        }
+        rec.getRowValues().add(val);
       } else if (serialType.getType() == 4) {
         rec.getRowValues().add(payload.getInt());
       } else if (serialType.getType() == 6) {
@@ -63,7 +73,7 @@ public class PayloadRecord {
         throw new UnsupportedOperationException("Unsupported serial type: " + serialType);
       }
     }
-    LOG.trace("rowValues {}", rec.rowValues);
+    LOG.trace("rowValues={} serialTypes={}", rec.rowValues, rec.serialTypes);
     return rec;
   }
 
