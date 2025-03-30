@@ -1,15 +1,13 @@
 package org.howietkl.sqlite.command;
 
 import org.howietkl.sqlite.PageHeader;
+import org.howietkl.sqlite.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 public class DBInfoCommand implements Command {
   private static final Logger LOG = LoggerFactory.getLogger(DBInfoCommand.class);
@@ -21,9 +19,7 @@ public class DBInfoCommand implements Command {
   }
 
   private static void dbInfo(String databaseFilePath) throws Exception {
-    ByteBuffer db = ByteBuffer.wrap(Files.readAllBytes(Path.of(databaseFilePath)))
-        .order(ByteOrder.BIG_ENDIAN)
-        .asReadOnlyBuffer();
+    ByteBuffer db = Utils.getByteBuffer(databaseFilePath);
 
     db.position(16); // Skip the first 16 bytes of the header
     int pageSize = Short.toUnsignedInt(db.getShort());
