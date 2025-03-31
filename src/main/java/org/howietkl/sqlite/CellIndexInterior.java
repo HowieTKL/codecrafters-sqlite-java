@@ -7,20 +7,20 @@ import java.nio.ByteBuffer;
 
 public class CellIndexInterior implements Cell {
   private static final Logger LOG = LoggerFactory.getLogger(CellIndexInterior.class);
-  private int leftChildPageNumber;
-  private int payloadSize;
+  private long leftChildPageNumber;
   private ByteBuffer payload;
 
   public static CellIndexInterior get(ByteBuffer db) {
     CellIndexInterior cell = new CellIndexInterior();
-    cell.leftChildPageNumber = db.getInt();
+    cell.leftChildPageNumber = Integer.toUnsignedLong(db.getInt());
 
-    cell.payloadSize = (int) Utils.getVarint(db);
-    byte[] payloadBytes = new byte[cell.payloadSize];
+    int payloadSize = (int) Utils.getVarint(db);
+    byte[] payloadBytes = new byte[payloadSize];
     int pos = db.position();
     db.get(payloadBytes);
     cell.payload = ByteBuffer.wrap(payloadBytes);
-    LOG.debug("leftChildPage#={} payloadOffset={} payloadSize={}", cell.leftChildPageNumber, pos, cell.payloadSize);
+    LOG.debug("leftChildPage#={} payloadOffset={} payloadSize={}",
+        cell.leftChildPageNumber, pos, payloadSize);
 
     return cell;
   }
@@ -30,7 +30,7 @@ public class CellIndexInterior implements Cell {
     return BTreeType.INTERIOR_INDEX;
   }
 
-  public int getLeftChildPageNumber() {
+  public long getLeftChildPageNumber() {
     return leftChildPageNumber;
   }
 

@@ -7,13 +7,13 @@ import java.nio.ByteBuffer;
 
 public class CellTableInterior implements Cell {
   private static final Logger LOG = LoggerFactory.getLogger(CellTableInterior.class);
-  private int leftChildPageNumber;
+  private long leftChildPageNumber;
   private long rowId;
 
   public static CellTableInterior get(ByteBuffer db) {
     CellTableInterior cell = new CellTableInterior();
 
-    cell.leftChildPageNumber = db.getInt();
+    cell.leftChildPageNumber = Integer.toUnsignedLong(db.getInt());
     cell.rowId = Utils.getVarint(db);
     LOG.trace("leftChildPage#={} rowId={}", cell.leftChildPageNumber, cell.rowId);
     return cell;
@@ -24,7 +24,7 @@ public class CellTableInterior implements Cell {
     return BTreeType.INTERIOR_TABLE;
   }
 
-  public int getLeftChildPageNumber() {
+  public long getLeftChildPageNumber() {
     return leftChildPageNumber;
   }
 
