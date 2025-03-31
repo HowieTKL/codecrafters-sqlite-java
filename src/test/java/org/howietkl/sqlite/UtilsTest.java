@@ -32,14 +32,18 @@ class UtilsTest {
     buf = ByteBuffer.wrap(val);
     assertEquals(199, Utils.getVarint(buf));
 
-    val = new byte[] {(byte) 0b10110011, 0b00110011}; //
+    val = new byte[] {(byte) 0b10110011, 0b00110011};
     buf = ByteBuffer.wrap(val);
     assertEquals(6579, Utils.getVarint(buf));
 
-    val = new byte[] {(byte) 0b10000001, (byte) 0b10111111, (byte) 0b10000001, 0b00111111}; //
+    val = new byte[] {(byte) 0b10000001, (byte) 0b10111111, (byte) 0b10000001, 0b00111111};
     buf = ByteBuffer.wrap(val);
     assertEquals(3129535, Utils.getVarint(buf));
 
+    val = new byte[] {(byte) 0b11111111, (byte) 0b11111111, (byte) 0b11111111, (byte) 0b11111111,
+        (byte) 0b11111111, (byte) 0b11111111, (byte) 0b11111111, (byte) 0b11111111, (byte) 0b11111111,};
+    buf = ByteBuffer.wrap(val);
+    assertEquals(-1, Utils.getVarint(buf));
   }
 
 }
