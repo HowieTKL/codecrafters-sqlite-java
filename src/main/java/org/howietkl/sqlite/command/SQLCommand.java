@@ -92,7 +92,7 @@ public class SQLCommand implements Command {
   }
 
   private static void processPage(Object rootPage, ByteBuffer db, SelectParser selectParser, CreateTableParser createTableParser, int pageSize) {
-    configureOffsetFromRootPage(rootPage, pageSize, db);
+    db.position((int) getOffsetFromRootPage(rootPage, pageSize));
     PageHeader tablePageHeader = PageHeader.get(db);
 
     switch (tablePageHeader.getType()) {
@@ -138,7 +138,7 @@ public class SQLCommand implements Command {
   }
 
   private static void processIndexPage(Object rootPage, ByteBuffer db, int pageSize) {
-    configureOffsetFromRootPage(rootPage, pageSize, db);
+    db.position((int) getOffsetFromRootPage(rootPage, pageSize));
     PageHeader indexPageHeader = PageHeader.get(db);
 
     if (indexPageHeader.hasRightMostPointer()) {
@@ -159,7 +159,7 @@ public class SQLCommand implements Command {
         cellPointerArray.getOffsets().forEach(offset -> {
           db.position(offset);
           CellIndexInterior cell = CellIndexInterior.get(db);
-          // processIndexPage(cell.getLeftChildPageNumber(), db, pageSize);
+          //processIndexPage(cell.getLeftChildPageNumber(), db, pageSize);
         });
       }
     }
@@ -177,16 +177,15 @@ public class SQLCommand implements Command {
     PageHeader schemaPageHeader = PageHeader.get(db);
 
     PayloadRecord record = PayloadRecord.getTableRecord(db, schemaPageHeader, table);
-    configureOffsetFromRootPage(
+    db.position((int) getOffsetFromRootPage(
         record.getRowValues().get(SchemaHeaders.rootpage.pos()),
-        dbheader.getPageSize(),
-        db);
+        dbheader.getPageSize()));
 
     PageHeader tablePageHeader = PageHeader.get(db);
     System.out.println(tablePageHeader.getCells());
   }
 
-  private static void configureOffsetFromRootPage(Object rootPage, int pageSize, ByteBuffer db) {
+  private static long getOffsetFromRootPage(Object rootPage, int pageSize) {
     long rootPageNum = switch (rootPage) {
       case Byte b -> b;
       case Short s -> s;
@@ -196,7 +195,7 @@ public class SQLCommand implements Command {
 
     long offset = (rootPageNum - 1) * pageSize;
     LOG.trace("rootPage={} offset={}", rootPageNum, offset);
-    db.position((int)offset);
+    return offset;
   }
 
 }
