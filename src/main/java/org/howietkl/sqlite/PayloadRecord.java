@@ -81,7 +81,8 @@ public class PayloadRecord {
       db.position(offset);
       CellTableLeaf cell = CellTableLeaf.get(db);
       PayloadRecord record = get(cell.getPayloadRecord());
-      if (table.equals(record.getRowValues().get(SchemaHeaders.tbl_name.pos()))) {
+      if ("table".equals(record.getRowValues().get(SchemaHeaders.type.pos()))
+          && table.equals(record.getRowValues().get(SchemaHeaders.tbl_name.pos()))) {
         return record;
       }
     }
