@@ -10,28 +10,26 @@ import java.util.List;
 
 public class PayloadRecord {
   private static final Logger LOG = LoggerFactory.getLogger(PayloadRecord.class);
-  private final ByteBuffer payload;
   private final List<SerialType> serialTypes = new ArrayList<>();
   private final List<Object> rowValues = new ArrayList<>();
-  
-  private PayloadRecord(ByteBuffer payload) {
-    this.payload = payload;
-  }
-  
+
+  private PayloadRecord() {}
+
   public static PayloadRecord get(ByteBuffer payload) {
-    PayloadRecord rec = new PayloadRecord(payload);
-    
+    PayloadRecord rec = new PayloadRecord();
     int prevPos = payload.position();
     int recordHeaderSize = (int) Utils.getVarint(payload);
     recordHeaderSize -= payload.position() - prevPos;
     prevPos = payload.position();
+
     while (recordHeaderSize > 0) {
-      SerialType serialType = new SerialType((int) Utils.getVarint(payload));
+      SerialType serialType = SerialType.get((int) Utils.getVarint(payload));
       rec.serialTypes.add(serialType);
       int size = payload.position() - prevPos;
       prevPos = payload.position();
       recordHeaderSize -= size;
     }
+
     for (SerialType serialType : rec.serialTypes) {
       if (serialType.getType() == 1) {
         rec.getRowValues().add(payload.get());
@@ -73,14 +71,13 @@ public class PayloadRecord {
         throw new UnsupportedOperationException("Unsupported serial type: " + serialType);
       }
     }
-    LOG.trace("{}", rec.serialTypes);
-    LOG.trace("{}", rec.rowValues);
+    LOG.trace("rowValues={} serialTypes={}", rec.rowValues, rec.serialTypes);
     return rec;
   }
 
-  public static PayloadRecord getTableRecord(ByteBuffer db, PageHeader pageHeader, String table) {
+  public static PayloadRecord getTableRecord(Database db, PageHeader pageHeader, String table) {
     CellPointerArray cellPointerArray = CellPointerArray.get(pageHeader, db);
-    for (int offset: cellPointerArray.getOffsets()) {
+    for (long offset: cellPointerArray.getOffsets()) {
       db.position(offset);
       CellTableLeaf cell = CellTableLeaf.get(db);
       PayloadRecord record = get(cell.getPayloadRecord());

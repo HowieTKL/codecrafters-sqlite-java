@@ -42,13 +42,13 @@ public class Utils {
     return result;
   }
 
-  public static long getVarint(DataInput in) throws IOException {
+  public static long getVarint(Database db) {
     long result = 0;
     int i = 0;
     byte current;
     boolean done = false;
     for (i = 0; i < 8; ++i) {
-      current = in.readByte();
+      current = db.get();
       result = (result << 7) | (current & 0b01111111);
       if ((current & 0b10000000) == 0) {
         done = true;
@@ -56,7 +56,7 @@ public class Utils {
       }
     }
     if (!done) {
-      current = in.readByte();
+      current = db.get();
       result = (result << 7) | (current & 0b01111111);
       if ((current & 0b10000000) != 0) {
         // 9th byte can be signed
@@ -69,6 +69,7 @@ public class Utils {
 
   public static ByteBuffer getByteBuffer(String databaseFilePath) throws IOException {
     try (FileChannel channel = FileChannel.open(Path.of(databaseFilePath), StandardOpenOption.READ)) {
+      LOG.debug("channel size={} properties={}", channel.size(), Runtime.getRuntime().maxMemory());
       return channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size())
           .order(ByteOrder.BIG_ENDIAN)
           .asReadOnlyBuffer();

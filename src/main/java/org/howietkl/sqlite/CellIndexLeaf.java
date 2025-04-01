@@ -9,12 +9,12 @@ public class CellIndexLeaf implements Cell {
   private static final Logger LOG = LoggerFactory.getLogger(CellIndexLeaf.class);
   private ByteBuffer payload;
 
-  public static CellIndexLeaf get(ByteBuffer db) {
+  public static CellIndexLeaf get(Database db) {
     CellIndexLeaf cell = new CellIndexLeaf();
 
     int payloadSize = (int) Utils.getVarint(db);
     byte[] payloadBytes = new byte[payloadSize];
-    int pos = db.position();
+    long pos = db.position();
     db.get(payloadBytes);
     cell.payload = ByteBuffer.wrap(payloadBytes);
     LOG.trace("payloadOffset={} payloadSize={}", pos, payloadSize);

@@ -11,7 +11,7 @@ import java.nio.ByteBuffer;
 public class PageHeader {
   private static final Logger LOG = LoggerFactory.getLogger(PageHeader.class);
 
-  private final int position;
+  private final long position;
   private final BTreeType type;
   private final int firstFreeBlock;
   private final int cells;
@@ -19,7 +19,7 @@ public class PageHeader {
   private final int fragmentedBytes;
   private long rightMostPointer = -1;
 
-  private PageHeader(int pos, byte type, int firstFreeBlock, int cells, int cellContentStart, int fragmentedBytes) {
+  private PageHeader(long pos, byte type, int firstFreeBlock, int cells, int cellContentStart, int fragmentedBytes) {
     this.position = pos;
     this.type = BTreeType.get(type);
     this.firstFreeBlock = firstFreeBlock;
@@ -33,14 +33,14 @@ public class PageHeader {
    * Note that existence of RightMostPointer depends upon whether page is interior.
    * @param db should be set to appropriate position before calling this method
    */
-  public static PageHeader get(ByteBuffer db) {
+  public static PageHeader get(Database db) {
     PageHeader page = new PageHeader(
         db.position(),
         db.get(), // type
-        Short.toUnsignedInt(db.getShort()), // first freeblock
-        Short.toUnsignedInt(db.getShort()), // #cells
-        Short.toUnsignedInt(db.getShort()), // cell content area start
-        Byte.toUnsignedInt(db.get())); // fragmented free bytes
+        db.getShort(), // first freeblock
+        db.getShort(), // #cells
+        db.getShort(), // cell content area start
+        db.get()); // fragmented free bytes
 
     switch (page.type) {
       case BTreeType.INTERIOR_TABLE, BTreeType.INTERIOR_INDEX -> {
@@ -60,7 +60,7 @@ public class PageHeader {
     return page;
   }
 
-  public int getPosition() {
+  public long getPosition() {
     return position;
   }
 

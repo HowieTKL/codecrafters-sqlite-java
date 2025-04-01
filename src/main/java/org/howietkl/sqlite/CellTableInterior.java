@@ -10,7 +10,7 @@ public class CellTableInterior implements Cell {
   private long leftChildPageNumber;
   private long rowId;
 
-  public static CellTableInterior get(ByteBuffer db) {
+  public static CellTableInterior get(Database db) {
     CellTableInterior cell = new CellTableInterior();
 
     cell.leftChildPageNumber = Integer.toUnsignedLong(db.getInt());

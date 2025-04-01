@@ -2,6 +2,7 @@ package org.howietkl.sqlite.command;
 
 import org.howietkl.sqlite.CellPointerArray;
 import org.howietkl.sqlite.CellTableLeaf;
+import org.howietkl.sqlite.Database;
 import org.howietkl.sqlite.PageHeader;
 import org.howietkl.sqlite.PayloadRecord;
 import org.howietkl.sqlite.SchemaHeaders;
@@ -21,7 +22,7 @@ public class TablesCommand implements Command {
   }
 
   private void tables(String databaseFilePath) throws Exception {
-    ByteBuffer db = Utils.getByteBuffer(databaseFilePath);
+    Database db = new Database(databaseFilePath);
 
     DBInfoCommand.readTextEncoding(db);
 

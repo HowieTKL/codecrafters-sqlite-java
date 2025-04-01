@@ -10,12 +10,12 @@ public class CellTableLeaf implements Cell {
   private long rowId;
   private ByteBuffer payload;
 
-  public static CellTableLeaf get(ByteBuffer db) {
+  public static CellTableLeaf get(Database db) {
     CellTableLeaf cell = new CellTableLeaf();
     int payloadSize = (int) Utils.getVarint(db);
     cell.rowId = Utils.getVarint(db);
     byte[] payloadBytes = new byte[payloadSize];
-    int pos = db.position();
+    long pos = db.position();
     db.get(payloadBytes);
     cell.payload = ByteBuffer.wrap(payloadBytes);
     LOG.trace("payloadOffset={} rowId={} payloadSize={}", pos, cell.rowId, payloadSize);

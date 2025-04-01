@@ -8,6 +8,7 @@ import org.howietkl.sqlite.CellTableInterior;
 import org.howietkl.sqlite.CellTableLeaf;
 import org.howietkl.sqlite.CreateTableParser;
 import org.howietkl.sqlite.DBHeader;
+import org.howietkl.sqlite.Database;
 import org.howietkl.sqlite.PageHeader;
 import org.howietkl.sqlite.PayloadRecord;
 import org.howietkl.sqlite.Row;
@@ -48,7 +49,7 @@ public class SQLCommand implements Command {
   private static void selectColumns(String databaseFilePath, SelectParser selectParser) throws IOException {
     long startTime = System.currentTimeMillis();
 
-    ByteBuffer db = Utils.getByteBuffer(databaseFilePath);
+    Database db = new Database(databaseFilePath);
 
     DBInfoCommand.readTextEncoding(db);
 
@@ -73,12 +74,12 @@ public class SQLCommand implements Command {
     LOG.info("Query time={}ms", System.currentTimeMillis() - startTime);
   }
 
-  private static Object findIndexPage(ByteBuffer db) {
+  private static Object findIndexPage(Database db) {
     db.position(100);
     PageHeader schemaPageHeader = PageHeader.get(db);
     CellPointerArray cellPointerArray = CellPointerArray.get(schemaPageHeader, db);
 
-    for (int offset : cellPointerArray.getOffsets()) {
+    for (long offset : cellPointerArray.getOffsets()) {
       db.position(offset);
       CellTableLeaf cell = CellTableLeaf.get(db);
       PayloadRecord record = PayloadRecord.get(cell.getPayloadRecord());
@@ -91,7 +92,7 @@ public class SQLCommand implements Command {
     return null;
   }
 
-  private static void processPage(Object rootPage, ByteBuffer db, SelectParser selectParser, CreateTableParser createTableParser, int pageSize) {
+  private static void processPage(Object rootPage, Database db, SelectParser selectParser, CreateTableParser createTableParser, int pageSize) {
     db.position((int) getOffsetFromRootPage(rootPage, pageSize));
     PageHeader tablePageHeader = PageHeader.get(db);
 
@@ -137,8 +138,8 @@ public class SQLCommand implements Command {
     }
   }
 
-  private static void processIndexPage(Object rootPage, ByteBuffer db, int pageSize) {
-    db.position((int) getOffsetFromRootPage(rootPage, pageSize));
+  private static void processIndexPage(Object rootPage, Database db, int pageSize) {
+    db.position(getOffsetFromRootPage(rootPage, pageSize));
     PageHeader indexPageHeader = PageHeader.get(db);
 
     if (indexPageHeader.hasRightMostPointer()) {
@@ -151,7 +152,8 @@ public class SQLCommand implements Command {
         cellPointerArray.getOffsets().forEach(offset -> {
           db.position(offset);
           CellIndexLeaf cell = CellIndexLeaf.get(db);
-
+          PayloadRecord indexRowRecord = PayloadRecord.get(cell.getPayload());
+          //LOG.debug("leaf index row={} serial={}", indexRowRecord.getRowValues(), indexRowRecord.getSerialTypes());
         });
       }
       case BTreeType.INTERIOR_INDEX -> {
@@ -159,6 +161,12 @@ public class SQLCommand implements Command {
         cellPointerArray.getOffsets().forEach(offset -> {
           db.position(offset);
           CellIndexInterior cell = CellIndexInterior.get(db);
+          try {
+            //PayloadRecord indexRowRecord = PayloadRecord.get(cell.getPayload());
+            //LOG.debug("interior index row={} serial={}", indexRowRecord.getRowValues(), indexRowRecord.getSerialTypes());
+          } catch (Exception e) {
+            LOG.error(e.getMessage());
+          }
           //processIndexPage(cell.getLeftChildPageNumber(), db, pageSize);
         });
       }
@@ -166,9 +174,7 @@ public class SQLCommand implements Command {
   }
 
   private static void countRows(String databaseFilePath, String table) throws IOException {
-    ByteBuffer db = ByteBuffer.wrap(Files.readAllBytes(Path.of(databaseFilePath)))
-        .order(ByteOrder.BIG_ENDIAN)
-        .asReadOnlyBuffer();
+    Database db = new Database(databaseFilePath);
 
     DBInfoCommand.readTextEncoding(db);
 

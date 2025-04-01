@@ -10,17 +10,16 @@ public class CellIndexInterior implements Cell {
   private long leftChildPageNumber;
   private ByteBuffer payload;
 
-  public static CellIndexInterior get(ByteBuffer db) {
+  public static CellIndexInterior get(Database db) {
     CellIndexInterior cell = new CellIndexInterior();
     cell.leftChildPageNumber = Integer.toUnsignedLong(db.getInt());
 
     int payloadSize = (int) Utils.getVarint(db);
     byte[] payloadBytes = new byte[payloadSize];
-    int pos = db.position();
+    long pos = db.position();
     db.get(payloadBytes);
     cell.payload = ByteBuffer.wrap(payloadBytes);
-    LOG.debug("leftChildPage#={} payloadOffset={} payloadSize={}",
-        cell.leftChildPageNumber, pos, payloadSize);
+    // LOG.debug("leftChildPage#={} payloadOffset={} payloadSize={}", cell.leftChildPageNumber, pos, payloadSize);
 
     return cell;
   }

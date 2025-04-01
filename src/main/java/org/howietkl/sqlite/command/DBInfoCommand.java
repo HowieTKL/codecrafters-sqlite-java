@@ -1,5 +1,6 @@
 package org.howietkl.sqlite.command;
 
+import org.howietkl.sqlite.Database;
 import org.howietkl.sqlite.PageHeader;
 import org.howietkl.sqlite.Utils;
 import org.slf4j.Logger;
@@ -19,10 +20,10 @@ public class DBInfoCommand implements Command {
   }
 
   private static void dbInfo(String databaseFilePath) throws Exception {
-    ByteBuffer db = Utils.getByteBuffer(databaseFilePath);
+    Database db = new Database(databaseFilePath);
 
     db.position(16); // Skip the first 16 bytes of the header
-    int pageSize = Short.toUnsignedInt(db.getShort());
+    int pageSize = db.getShort();
 
     db.position(28);
     int pages = db.getInt();
@@ -36,7 +37,7 @@ public class DBInfoCommand implements Command {
     System.out.println("number of tables: " + pageHeader.getCells());
   }
 
-  static void readTextEncoding(ByteBuffer db) {
+  static void readTextEncoding(Database db) {
     db.position(56);
     int textEncodingValue = db.getInt();
     switch (textEncodingValue) {

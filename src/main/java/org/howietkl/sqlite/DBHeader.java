@@ -13,11 +13,11 @@ public class DBHeader {
   private DBHeader() {
   }
 
-  public static DBHeader get(ByteBuffer db) {
+  public static DBHeader get(Database db) {
     DBHeader dbHeader = new DBHeader();
 
     db.position(16); // Skip the first 16 bytes of the header
-    dbHeader.pageSize = Short.toUnsignedInt(db.getShort());
+    dbHeader.pageSize = db.getShort();
 
     db.position(28);
     dbHeader.pageCount = db.getInt();
