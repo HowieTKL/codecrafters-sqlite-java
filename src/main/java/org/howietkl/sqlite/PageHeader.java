@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 public class PageHeader {
   private static final Logger LOG = LoggerFactory.getLogger(PageHeader.class);
 
+  private final Object rootPage;
   private final long position;
   private final BTreeType type;
   private final int firstFreeBlock;
@@ -17,7 +18,8 @@ public class PageHeader {
   private final int fragmentedBytes;
   private long rightMostPointer = -1;
 
-  private PageHeader(long pos, byte type, int firstFreeBlock, int cells, int cellContentStart, int fragmentedBytes) {
+  private PageHeader(Object rootPage, long pos, byte type, int firstFreeBlock, int cells, int cellContentStart, int fragmentedBytes) {
+    this.rootPage = rootPage;
     this.position = pos;
     this.type = BTreeType.get(type);
     this.firstFreeBlock = firstFreeBlock;
@@ -35,6 +37,7 @@ public class PageHeader {
     long pos = getOffsetFromRootPage(rootPage, pageSize);
     db.position(pos);
     PageHeader page = new PageHeader(
+        rootPage,
         pos,
         db.get(), // type
         db.getShort(), // first freeblock
@@ -58,6 +61,10 @@ public class PageHeader {
       LOG.trace("right most pointer: {}", page.getRightMostPointer());
     }
     return page;
+  }
+
+  public Object getRootPage() {
+    return rootPage;
   }
 
   public long getPosition() {

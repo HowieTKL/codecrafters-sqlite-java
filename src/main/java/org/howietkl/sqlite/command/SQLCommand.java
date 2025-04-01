@@ -18,12 +18,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class SQLCommand implements Command {
   private static final Logger LOG = LoggerFactory.getLogger(SQLCommand.class);
+  public static boolean isInteriorIndex = false;
 
   @Override
   public void execute(String[] args) throws Exception {
@@ -51,9 +54,11 @@ public class SQLCommand implements Command {
     DBHeader dbHeader = DBHeader.get(db);
 
     Object indexPage = findIndexPage(db);
+    List<Long> filteredIndex = new ArrayList<>();
     if (indexPage != null) {
-      processIndexPage(indexPage, db, dbHeader.getPageSize());
+      processIndexPage(indexPage, db, dbHeader.getPageSize(), selectParser, filteredIndex);
     }
+    LOG.debug("filteredIndex={}", filteredIndex);
 
     PageHeader schemaPageHeader = PageHeader.get(db, 1, dbHeader.getPageSize());
 
@@ -73,10 +78,11 @@ public class SQLCommand implements Command {
     PageHeader schemaPageHeader = PageHeader.get(db, 1, dbHeader.getPageSize());
     CellPointerArray cellPointerArray = CellPointerArray.get(schemaPageHeader, db);
 
-    for (long offset : cellPointerArray.getOffsets()) {
+    for (long offset : cellPointerArray.getPositions()) {
       db.position(offset);
       CellTableLeaf cell = CellTableLeaf.get(db);
       PayloadRecord record = PayloadRecord.get(cell.getPayloadRecord());
+      LOG.debug("{} {}", record.getRowValues(), record.getSerialTypes());
       if ("index".equals(record.getRowValues().get(SchemaHeaders.type.pos()))) {
         Object rootPage = record.getRowValues().get(SchemaHeaders.rootpage.pos());
         LOG.debug("index rootpage={}", rootPage);
@@ -99,24 +105,24 @@ public class SQLCommand implements Command {
         // map offset -> row
         // with row we can filter WHERE clause
         // finally map row -> columns for display
-        cellPointerArray.getOffsets().stream()
+        cellPointerArray.getPositions().stream()
             .map(offset -> {
               db.position(offset);
               CellTableLeaf cell = CellTableLeaf.get(db);
               PayloadRecord tableRowRecord = PayloadRecord.get(cell.getPayloadRecord());
-              Row row = new Row()
+              return new Row()
                   .setColumnMetadata(createTableParser)
                   .setValues(tableRowRecord.getRowValues())
                   .setRowId(cell.getRowId());
-              // LOG.debug("rowId={} country={}", row.getRowId(), row.getColumnValue("country"));
-              return row;
             })
             .filter(row -> filter == null || filter.getValue().equals(row.getColumnValue(filter.getKey())))
-            .map(row -> columns.stream()
+            .map(row -> {
+              return columns.stream()
                 .map(column -> "id".equals(column)
                     ? Long.toString(row.getRowId())
                     : (String) row.getColumnValue(column))
-                .collect(Collectors.joining("|")))
+                .collect(Collectors.joining("|"));
+            })
             .forEach(System.out::println);
       }
       case BTreeType.INTERIOR_TABLE -> {
@@ -124,7 +130,7 @@ public class SQLCommand implements Command {
         if (tablePageHeader.hasRightMostPointer()) {
           processPage(tablePageHeader.getRightMostPointer(), db, selectParser, createTableParser, pageSize);
         }
-        cellPointerArray.getOffsets().forEach(offset -> {
+        cellPointerArray.getPositions().forEach(offset -> {
           db.position(offset);
           CellTableInterior cell = CellTableInterior.get(db);
           processPage(cell.getLeftChildPageNumber(), db, selectParser, createTableParser, pageSize);
@@ -133,37 +139,49 @@ public class SQLCommand implements Command {
     }
   }
 
-  private static void processIndexPage(Object rootPage, Database db, int pageSize) {
+  private static void processIndexPage(Object rootPage, Database db, int pageSize, SelectParser selectParser, List<Long> rowIds) {
+    final Map.Entry<String, String> filter = selectParser.getFilter().entrySet().iterator().hasNext()
+        ? selectParser.getFilter().entrySet().iterator().next()
+        : null;
     PageHeader indexPageHeader = PageHeader.get(db, rootPage, pageSize);
-
-    if (indexPageHeader.hasRightMostPointer()) {
-      processIndexPage(indexPageHeader.getRightMostPointer(), db, pageSize);
-    }
 
     switch (indexPageHeader.getType()) {
       case BTreeType.LEAF_INDEX -> {
         CellPointerArray cellPointerArray = CellPointerArray.get(indexPageHeader, db);
-        cellPointerArray.getOffsets().forEach(offset -> {
+        cellPointerArray.getPositions().forEach(offset -> {
           db.position(offset);
           CellIndexLeaf cell = CellIndexLeaf.get(db);
-          PayloadRecord indexRowRecord = PayloadRecord.get(cell.getPayload());
-          //LOG.debug("leaf index row={} serial={}", indexRowRecord.getRowValues(), indexRowRecord.getSerialTypes());
+          processIndex(cell.getPayload(), filter, offset, rowIds);
         });
       }
       case BTreeType.INTERIOR_INDEX -> {
         CellPointerArray cellPointerArray = CellPointerArray.get(indexPageHeader, db);
-        cellPointerArray.getOffsets().forEach(offset -> {
+        cellPointerArray.getPositions().forEach(offset -> {
           db.position(offset);
           CellIndexInterior cell = CellIndexInterior.get(db);
-          //processIndexPage(cell.getLeftChildPageNumber(), db, pageSize);
-          try {
-            //PayloadRecord indexRowRecord = PayloadRecord.get(cell.getPayload());
-            //LOG.debug("interior index row={} serial={}", indexRowRecord.getRowValues(), indexRowRecord.getSerialTypes());
-          } catch (Exception e) {
-            LOG.error(e.getMessage());
-          }
+          processIndexPage(cell.getLeftChildPageNumber(), db, pageSize, selectParser,rowIds);
+          processIndex(cell.getPayload(), filter, offset, rowIds);
         });
       }
+    }
+    if (indexPageHeader.hasRightMostPointer()) {
+      processIndexPage(indexPageHeader.getRightMostPointer(), db, pageSize, selectParser, rowIds);
+    }
+  }
+
+  private static void processIndex(ByteBuffer cell, Map.Entry<String, String> filter, Long offset, List<Long> rowIds) {
+    PayloadRecord indexRowRecord = PayloadRecord.get(cell);
+    Object indexed = indexRowRecord.getRowValues().get(0);
+    if (filter.getValue().equals(indexed)) {
+      Object rowIdObj = indexRowRecord.getRowValues().get(1);
+      long rowId = switch (rowIdObj) {
+        case Integer i -> i;
+        case Short s -> s;
+        case Byte b -> b;
+        case Long l -> l;
+        default -> throw new IllegalStateException("Unexpected value: " + rowIdObj);
+      };
+      rowIds.add(rowId);
     }
   }
 

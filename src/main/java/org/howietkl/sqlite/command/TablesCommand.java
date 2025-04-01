@@ -29,7 +29,7 @@ public class TablesCommand implements Command {
     CellPointerArray cellPointerArray = CellPointerArray.get(pageHeader, db);
 
     LOG.debug("type name tbl_name rootpage sql");
-    String tableNames = cellPointerArray.getOffsets().stream()
+    String tableNames = cellPointerArray.getPositions().stream()
         .map(offset -> {
           db.position(offset);
           CellTableLeaf cell = CellTableLeaf.get(db);

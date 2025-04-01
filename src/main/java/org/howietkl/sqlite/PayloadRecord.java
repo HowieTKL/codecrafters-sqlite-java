@@ -77,7 +77,7 @@ public class PayloadRecord {
 
   public static PayloadRecord getTableRecord(Database db, PageHeader pageHeader, String table) {
     CellPointerArray cellPointerArray = CellPointerArray.get(pageHeader, db);
-    for (long offset: cellPointerArray.getOffsets()) {
+    for (long offset: cellPointerArray.getPositions()) {
       db.position(offset);
       CellTableLeaf cell = CellTableLeaf.get(db);
       PayloadRecord record = get(cell.getPayloadRecord());
