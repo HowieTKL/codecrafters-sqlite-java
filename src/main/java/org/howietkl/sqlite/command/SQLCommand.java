@@ -178,6 +178,11 @@ public class SQLCommand implements Command {
     final Map.Entry<String, String> filter = selectParser.getFilter().entrySet().iterator().hasNext()
         ? selectParser.getFilter().entrySet().iterator().next()
         : null;
+
+    if (filter == null) {
+      return;
+    }
+
     PageHeader indexPageHeader = PageHeader.get(db, rootPage, pageSize);
 
     switch (indexPageHeader.getType()) {
@@ -186,7 +191,7 @@ public class SQLCommand implements Command {
         cellPointerArray.getPositions().forEach(offset -> {
           db.position(offset);
           CellIndexLeaf cell = CellIndexLeaf.get(db);
-          processIndex(cell.getPayload(), filter, offset, rowIds);
+          processIndex(cell.getPayload(), filter, rowIds);
         });
       }
       case BTreeType.INTERIOR_INDEX -> {
@@ -194,31 +199,31 @@ public class SQLCommand implements Command {
         cellPointerArray.getPositions().forEach(offset -> {
           db.position(offset);
           CellIndexInterior cell = CellIndexInterior.get(db);
-          processIndexPage(cell.getLeftChildPageNumber(), db, pageSize, selectParser,rowIds);
-          processIndex(cell.getPayload(), filter, offset, rowIds);
+          processIndexPage(cell.getLeftChildPageNumber(), db, pageSize, selectParser, rowIds);
+          processIndex(cell.getPayload(), filter, rowIds);
         });
         processIndexPage(indexPageHeader.getRightMostPointer(), db, pageSize, selectParser, rowIds);
       }
     }
   }
 
-  private static void processIndex(ByteBuffer cell, Map.Entry<String, String> filter, Long offset, Set<Long> rowIds) {
-    if (filter == null) {
-      return;
-    }
+  private static void processIndex(ByteBuffer cell, Map.Entry<String, String> filter, Set<Long> rowIds) {
     PayloadRecord indexRowRecord = PayloadRecord.get(cell);
-    Object indexed = indexRowRecord.getRowValues().get(0);
-    if (filter.getValue().equals(indexed)) {
+    Object index = indexRowRecord.getRowValues().get(0);
+    if (filter.getValue().equals(index)) {
       Object rowIdObj = indexRowRecord.getRowValues().get(1);
-      long rowId = switch (rowIdObj) {
-        case Integer i -> i;
-        case Short s -> s;
-        case Byte b -> b;
-        case Long l -> l;
-        default -> throw new IllegalStateException("Unexpected value: " + rowIdObj);
-      };
-      rowIds.add(rowId);
+      rowIds.add(getRowId(rowIdObj));
     }
+  }
+
+  private static long getRowId(Object rowIdObj) {
+    return switch (rowIdObj) {
+      case Integer i -> i;
+      case Short s -> s;
+      case Byte b -> b;
+      case Long l -> l;
+      default -> throw new IllegalStateException("Unexpected value: " + rowIdObj);
+    };
   }
 
   private static void countRows(String databaseFilePath, String table) throws IOException {
