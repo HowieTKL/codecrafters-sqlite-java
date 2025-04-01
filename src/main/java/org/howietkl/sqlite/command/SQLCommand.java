@@ -136,13 +136,13 @@ public class SQLCommand implements Command {
         cellPointerArray.getPositions().forEach(offset -> {
           db.position(offset);
           CellTableInterior cell = CellTableInterior.get(db);
-          //LOG.debug("<= {} {} {}", isLessThanOrEquals(cell.getRowId(), indexes), cell.getRowId(), indexes);
+
           if (isLessThanOrEquals(cell.getRowId(), indexes)) {
             processPage(cell.getLeftChildPageNumber(), db, selectParser, createTableParser, pageSize, indexes);
           }
           lastCell.set(cell);
         });
-        //LOG.debug(">= {} {} {}", isLessThanOrEquals(lastCell.get().getRowId(), indexes), lastCell.get().getRowId(), indexes);
+
         if (isGreaterThanOrEquals(lastCell.get().getRowId(), indexes)) {
           processPage(tablePageHeader.getRightMostPointer(), db, selectParser, createTableParser, pageSize, indexes);
         }
@@ -227,11 +227,10 @@ public class SQLCommand implements Command {
     DBInfoCommand.readTextEncoding(db);
 
     DBHeader dbHeader = DBHeader.get(db);
-    db.position(100);
     PageHeader schemaPageHeader = PageHeader.get(db, 1, dbHeader.getPageSize());
 
     PayloadRecord record = PayloadRecord.getTableRecord(db, schemaPageHeader, table);
-    Object rootPage = record.getRowValues().get(SchemaHeaders.rootpage.pos());
+    Object rootPage = record != null ? record.getRowValues().get(SchemaHeaders.rootpage.pos()) : null;
     PageHeader tablePageHeader = PageHeader.get(db, rootPage, dbHeader.getPageSize());
     System.out.println(tablePageHeader.getCells());
   }

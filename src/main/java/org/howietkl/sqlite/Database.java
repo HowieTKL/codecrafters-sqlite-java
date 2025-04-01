@@ -22,7 +22,7 @@ public class Database {
     byte get();
   }
 
-  private class RandomAccessFileByteBuffer implements ByteBufferWrapper {
+  private static class RandomAccessFileByteBuffer implements ByteBufferWrapper {
     private final RandomAccessFile db;
     private RandomAccessFileByteBuffer(String dbFile) {
       try {
@@ -89,7 +89,7 @@ public class Database {
     }
   }
 
-  private class ByteBufferActual implements ByteBufferWrapper {
+  private static class ByteBufferActual implements ByteBufferWrapper {
     private final ByteBuffer db;
     private ByteBufferActual(String dbFile) {
       try {
