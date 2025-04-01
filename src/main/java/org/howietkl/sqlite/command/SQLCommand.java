@@ -20,8 +20,11 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class SQLCommand implements Command {
@@ -54,7 +57,7 @@ public class SQLCommand implements Command {
     DBHeader dbHeader = DBHeader.get(db);
 
     Object indexPage = findIndexPage(db);
-    List<Long> filteredIndex = new ArrayList<>();
+    Set<Long> filteredIndex = new HashSet<>();
     if (indexPage != null) {
       processIndexPage(indexPage, db, dbHeader.getPageSize(), selectParser, filteredIndex);
     }
@@ -68,7 +71,8 @@ public class SQLCommand implements Command {
         db,
         selectParser,
         CreateTableParser.parse((String) schemaRecordForTable.getRowValues().get(SchemaHeaders.sql.pos())),
-        dbHeader.getPageSize());
+        dbHeader.getPageSize(),
+        filteredIndex);
 
     LOG.info("Query time={}ms", System.currentTimeMillis() - startTime);
   }
@@ -92,7 +96,7 @@ public class SQLCommand implements Command {
     return null;
   }
 
-  private static void processPage(Object rootPage, Database db, SelectParser selectParser, CreateTableParser createTableParser, int pageSize) {
+  private static void processPage(Object rootPage, Database db, SelectParser selectParser, CreateTableParser createTableParser, int pageSize, Set<Long> indexes) {
     PageHeader tablePageHeader = PageHeader.get(db, rootPage, pageSize);
 
     switch (tablePageHeader.getType()) {
@@ -117,29 +121,60 @@ public class SQLCommand implements Command {
             })
             .filter(row -> filter == null || filter.getValue().equals(row.getColumnValue(filter.getKey())))
             .map(row -> {
+              indexes.remove(row.getRowId());
               return columns.stream()
-                .map(column -> "id".equals(column)
-                    ? Long.toString(row.getRowId())
-                    : (String) row.getColumnValue(column))
-                .collect(Collectors.joining("|"));
+                  .map(column -> "id".equals(column)
+                      ? Long.toString(row.getRowId())
+                      : (String) row.getColumnValue(column))
+                  .collect(Collectors.joining("|"));
             })
             .forEach(System.out::println);
       }
       case BTreeType.INTERIOR_TABLE -> {
         CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
-        if (tablePageHeader.hasRightMostPointer()) {
-          processPage(tablePageHeader.getRightMostPointer(), db, selectParser, createTableParser, pageSize);
-        }
+        AtomicReference<CellTableInterior> lastCell = new AtomicReference<>();
         cellPointerArray.getPositions().forEach(offset -> {
           db.position(offset);
           CellTableInterior cell = CellTableInterior.get(db);
-          processPage(cell.getLeftChildPageNumber(), db, selectParser, createTableParser, pageSize);
+          //LOG.debug("<= {} {} {}", isLessThanOrEquals(cell.getRowId(), indexes), cell.getRowId(), indexes);
+          if (isLessThanOrEquals(cell.getRowId(), indexes)) {
+            processPage(cell.getLeftChildPageNumber(), db, selectParser, createTableParser, pageSize, indexes);
+          }
+          lastCell.set(cell);
         });
+        //LOG.debug(">= {} {} {}", isLessThanOrEquals(lastCell.get().getRowId(), indexes), lastCell.get().getRowId(), indexes);
+        if (isGreaterThanOrEquals(lastCell.get().getRowId(), indexes)) {
+          processPage(tablePageHeader.getRightMostPointer(), db, selectParser, createTableParser, pageSize, indexes);
+        }
       }
     }
   }
 
-  private static void processIndexPage(Object rootPage, Database db, int pageSize, SelectParser selectParser, List<Long> rowIds) {
+  private static boolean isGreaterThanOrEquals(long rowId, Set<Long> indexes) {
+    if (indexes.isEmpty()) {
+      return true;
+    }
+    for (Long index: indexes) {
+      if (index >= rowId) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isLessThanOrEquals(long rowId, Set<Long> indexes) {
+    if (indexes.isEmpty()) {
+      return true;
+    }
+    for (Long index: indexes) {
+      if (index <= rowId) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static void processIndexPage(Object rootPage, Database db, int pageSize, SelectParser selectParser, Set<Long> rowIds) {
     final Map.Entry<String, String> filter = selectParser.getFilter().entrySet().iterator().hasNext()
         ? selectParser.getFilter().entrySet().iterator().next()
         : null;
@@ -162,14 +197,15 @@ public class SQLCommand implements Command {
           processIndexPage(cell.getLeftChildPageNumber(), db, pageSize, selectParser,rowIds);
           processIndex(cell.getPayload(), filter, offset, rowIds);
         });
+        processIndexPage(indexPageHeader.getRightMostPointer(), db, pageSize, selectParser, rowIds);
       }
-    }
-    if (indexPageHeader.hasRightMostPointer()) {
-      processIndexPage(indexPageHeader.getRightMostPointer(), db, pageSize, selectParser, rowIds);
     }
   }
 
-  private static void processIndex(ByteBuffer cell, Map.Entry<String, String> filter, Long offset, List<Long> rowIds) {
+  private static void processIndex(ByteBuffer cell, Map.Entry<String, String> filter, Long offset, Set<Long> rowIds) {
+    if (filter == null) {
+      return;
+    }
     PayloadRecord indexRowRecord = PayloadRecord.get(cell);
     Object indexed = indexRowRecord.getRowValues().get(0);
     if (filter.getValue().equals(indexed)) {
