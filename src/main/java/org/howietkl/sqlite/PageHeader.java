@@ -3,8 +3,6 @@ package org.howietkl.sqlite;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.ByteBuffer;
-
 /**
  * @see <a href="https://www.sqlite.org/fileformat.html#b_tree_pages">B-tree Pages</a>
  */
@@ -33,9 +31,11 @@ public class PageHeader {
    * Note that existence of RightMostPointer depends upon whether page is interior.
    * @param db should be set to appropriate position before calling this method
    */
-  public static PageHeader get(Database db) {
+  public static PageHeader get(Database db, Object rootPage, int pageSize) {
+    long pos = getOffsetFromRootPage(rootPage, pageSize);
+    db.position(pos);
     PageHeader page = new PageHeader(
-        db.position(),
+        pos,
         db.get(), // type
         db.getShort(), // first freeblock
         db.getShort(), // #cells
@@ -90,5 +90,21 @@ public class PageHeader {
 
   public long getRightMostPointer() {
     return rightMostPointer;
+  }
+
+  /**
+   * Root page is an unsigned 4-byte integer, which we represent as a long.
+   */
+  private static long getOffsetFromRootPage(Object rootPage, int pageSize) {
+    long rootPageNum = switch (rootPage) {
+      case Byte b -> Byte.toUnsignedLong(b);
+      case Short s -> Short.toUnsignedLong(s);
+      case Long l -> l;
+      case Integer i -> Integer.toUnsignedLong(i);
+      default -> throw new IllegalStateException("Unexpected value: " + rootPage);
+    };
+    long pos = rootPageNum == 1 ? 100 : (rootPageNum - 1) * pageSize;
+    LOG.trace("rootPage={} pos={}", rootPageNum, pos);
+    return pos;
   }
 }

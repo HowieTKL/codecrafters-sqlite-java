@@ -3,8 +3,6 @@ package org.howietkl.sqlite;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.ByteBuffer;
-
 public class DBHeader {
   private static final Logger LOG = LoggerFactory.getLogger(DBHeader.class);
   private int pageSize;

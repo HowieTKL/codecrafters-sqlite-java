@@ -3,7 +3,6 @@ package org.howietkl.sqlite;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.DataInput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -69,7 +68,6 @@ public class Utils {
 
   public static ByteBuffer getByteBuffer(String databaseFilePath) throws IOException {
     try (FileChannel channel = FileChannel.open(Path.of(databaseFilePath), StandardOpenOption.READ)) {
-      LOG.debug("channel size={} properties={}", channel.size(), Runtime.getRuntime().maxMemory());
       return channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size())
           .order(ByteOrder.BIG_ENDIAN)
           .asReadOnlyBuffer();

@@ -14,15 +14,10 @@ import org.howietkl.sqlite.PayloadRecord;
 import org.howietkl.sqlite.Row;
 import org.howietkl.sqlite.SchemaHeaders;
 import org.howietkl.sqlite.SelectParser;
-import org.howietkl.sqlite.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -60,8 +55,7 @@ public class SQLCommand implements Command {
       processIndexPage(indexPage, db, dbHeader.getPageSize());
     }
 
-    db.position(100);
-    PageHeader schemaPageHeader = PageHeader.get(db);
+    PageHeader schemaPageHeader = PageHeader.get(db, 1, dbHeader.getPageSize());
 
     PayloadRecord schemaRecordForTable = PayloadRecord.getTableRecord(db, schemaPageHeader, selectParser.getTableName());
 
@@ -75,8 +69,8 @@ public class SQLCommand implements Command {
   }
 
   private static Object findIndexPage(Database db) {
-    db.position(100);
-    PageHeader schemaPageHeader = PageHeader.get(db);
+    DBHeader dbHeader = DBHeader.get(db);
+    PageHeader schemaPageHeader = PageHeader.get(db, 1, dbHeader.getPageSize());
     CellPointerArray cellPointerArray = CellPointerArray.get(schemaPageHeader, db);
 
     for (long offset : cellPointerArray.getOffsets()) {
@@ -93,8 +87,7 @@ public class SQLCommand implements Command {
   }
 
   private static void processPage(Object rootPage, Database db, SelectParser selectParser, CreateTableParser createTableParser, int pageSize) {
-    db.position((int) getOffsetFromRootPage(rootPage, pageSize));
-    PageHeader tablePageHeader = PageHeader.get(db);
+    PageHeader tablePageHeader = PageHeader.get(db, rootPage, pageSize);
 
     switch (tablePageHeader.getType()) {
       case BTreeType.LEAF_TABLE -> {
@@ -105,16 +98,18 @@ public class SQLCommand implements Command {
         CellPointerArray cellPointerArray = CellPointerArray.get(tablePageHeader, db);
         // map offset -> row
         // with row we can filter WHERE clause
-        // map row -> columns - for display
+        // finally map row -> columns for display
         cellPointerArray.getOffsets().stream()
             .map(offset -> {
               db.position(offset);
               CellTableLeaf cell = CellTableLeaf.get(db);
               PayloadRecord tableRowRecord = PayloadRecord.get(cell.getPayloadRecord());
-              return new Row()
+              Row row = new Row()
                   .setColumnMetadata(createTableParser)
                   .setValues(tableRowRecord.getRowValues())
                   .setRowId(cell.getRowId());
+              // LOG.debug("rowId={} country={}", row.getRowId(), row.getColumnValue("country"));
+              return row;
             })
             .filter(row -> filter == null || filter.getValue().equals(row.getColumnValue(filter.getKey())))
             .map(row -> columns.stream()
@@ -139,8 +134,7 @@ public class SQLCommand implements Command {
   }
 
   private static void processIndexPage(Object rootPage, Database db, int pageSize) {
-    db.position(getOffsetFromRootPage(rootPage, pageSize));
-    PageHeader indexPageHeader = PageHeader.get(db);
+    PageHeader indexPageHeader = PageHeader.get(db, rootPage, pageSize);
 
     if (indexPageHeader.hasRightMostPointer()) {
       processIndexPage(indexPageHeader.getRightMostPointer(), db, pageSize);
@@ -161,13 +155,13 @@ public class SQLCommand implements Command {
         cellPointerArray.getOffsets().forEach(offset -> {
           db.position(offset);
           CellIndexInterior cell = CellIndexInterior.get(db);
+          //processIndexPage(cell.getLeftChildPageNumber(), db, pageSize);
           try {
             //PayloadRecord indexRowRecord = PayloadRecord.get(cell.getPayload());
             //LOG.debug("interior index row={} serial={}", indexRowRecord.getRowValues(), indexRowRecord.getSerialTypes());
           } catch (Exception e) {
             LOG.error(e.getMessage());
           }
-          //processIndexPage(cell.getLeftChildPageNumber(), db, pageSize);
         });
       }
     }
@@ -178,30 +172,14 @@ public class SQLCommand implements Command {
 
     DBInfoCommand.readTextEncoding(db);
 
-    DBHeader dbheader = DBHeader.get(db);
+    DBHeader dbHeader = DBHeader.get(db);
     db.position(100);
-    PageHeader schemaPageHeader = PageHeader.get(db);
+    PageHeader schemaPageHeader = PageHeader.get(db, 1, dbHeader.getPageSize());
 
     PayloadRecord record = PayloadRecord.getTableRecord(db, schemaPageHeader, table);
-    db.position((int) getOffsetFromRootPage(
-        record.getRowValues().get(SchemaHeaders.rootpage.pos()),
-        dbheader.getPageSize()));
-
-    PageHeader tablePageHeader = PageHeader.get(db);
+    Object rootPage = record.getRowValues().get(SchemaHeaders.rootpage.pos());
+    PageHeader tablePageHeader = PageHeader.get(db, rootPage, dbHeader.getPageSize());
     System.out.println(tablePageHeader.getCells());
-  }
-
-  private static long getOffsetFromRootPage(Object rootPage, int pageSize) {
-    long rootPageNum = switch (rootPage) {
-      case Byte b -> b;
-      case Short s -> s;
-      case Long l -> l;
-      default -> (int) rootPage;
-    };
-
-    long offset = (rootPageNum - 1) * pageSize;
-    LOG.trace("rootPage={} offset={}", rootPageNum, offset);
-    return offset;
   }
 
 }

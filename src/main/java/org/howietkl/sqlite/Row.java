@@ -36,7 +36,7 @@ public class Row {
 
   public Object getColumnValue(String columnName) {
     var index = columnMetadata.getColumnIndexLookup().get(columnName);
-    return values.get(index);
+    return index != null ? values.get(index) : null;
   }
 
 }
