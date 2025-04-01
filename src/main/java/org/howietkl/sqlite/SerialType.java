@@ -1,13 +1,26 @@
 package org.howietkl.sqlite;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Record format serial type.
  * @see <a href="">https://www.sqlite.org/fileformat.html#record_format</a>
  */
 public class SerialType {
+  private final static Map<Integer, SerialType> serialTypes = new HashMap<>();
   private final int type;
-  public SerialType(int type) {
+
+  private SerialType(int type) {
     this.type = type;
+  }
+
+  public static SerialType get(int type) {
+    if (!serialTypes.containsKey(type)) {
+      SerialType serialType = new SerialType(type);
+      serialTypes.put(type, serialType);
+    }
+    return serialTypes.get(type);
   }
 
   public int getContentSize() {
